@@ -2,16 +2,43 @@
   "name": "agent-history",
   "version": "0.1.0",
   "description": "Local CLI for finding and resuming AI agent sessions across local projects.",
+  "license": "MIT",
   "type": "module",
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "agent-history": "./bin/agent-history.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mikemajara/agent-history.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mikemajara/agent-history/issues"
+  },
+  "homepage": "https://github.com/mikemajara/agent-history#readme",
   "scripts": {
     "test": "node --test",
     "start": "node ./bin/agent-history.js",
     "ls": "node ./bin/agent-history.js ls"
   },
+  "keywords": [
+    "agent",
+    "history",
+    "cli",
+    "terminal",
+    "cursor",
+    "claude",
+    "codex"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
-    "node": ">=22"
+    "node": ">=18"
   }
 }
