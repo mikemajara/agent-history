@@ -11,11 +11,11 @@
     "LICENSE"
   ],
   "bin": {
-    "agent-history": "./bin/agent-history.js"
+    "agent-history": "bin/agent-history.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mikemajara/agent-history.git"
+    "url": "git+https://github.com/mikemajara/agent-history.git"
   },
   "bugs": {
     "url": "https://github.com/mikemajara/agent-history/issues"
