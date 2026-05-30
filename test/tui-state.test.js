@@ -24,6 +24,15 @@ test("slash enters live search mode", () => {
   assert.equal(state.mode, "search");
 });
 
+test("j and k navigate in normal mode", () => {
+  const state = createBrowserState(sessions);
+
+  assert.equal(handleBrowserInput(state, "j", { name: "j" }), "render");
+  assert.equal(state.selectedIndex, 1);
+  assert.equal(handleBrowserInput(state, "k", { name: "k" }), "render");
+  assert.equal(state.selectedIndex, 0);
+});
+
 test("search mode treats q as text instead of quit", () => {
   const state = createBrowserState(sessions);
   handleBrowserInput(state, "/", {});

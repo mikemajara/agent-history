@@ -39,12 +39,12 @@ function handleNormalInput(state, str, key, visibleSessions) {
     return "exit";
   }
 
-  if (key?.name === "down") {
+  if (key?.name === "down" || str === "j") {
     moveSelection(state, 1, visibleSessions);
     return "render";
   }
 
-  if (key?.name === "up") {
+  if (key?.name === "up" || str === "k") {
     moveSelection(state, -1, visibleSessions);
     return "render";
   }
@@ -68,7 +68,7 @@ function handleNormalInput(state, str, key, visibleSessions) {
   }
 
   if (str === "?") {
-    state.message = "Controls: arrows navigate, Enter print resume, / search, Esc clear+leave search, Ctrl+u clear, q quit";
+    state.message = "Controls: j/k/arrows navigate, Enter print resume, / search, Esc clear+leave search, Ctrl+u clear, q quit | Search matches agent, id, project, preview, metadata";
     return "render";
   }
 

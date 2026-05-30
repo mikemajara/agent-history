@@ -1,6 +1,5 @@
 import readline from "node:readline";
-import { formatLocalDate } from "./lib/time.js";
-import { formatProject, shortenId } from "./format.js";
+import { formatCompactDate, formatProject, shortenId } from "./format.js";
 import { clampSelection, createBrowserState, getVisibleSessions, handleBrowserInput } from "./tui/state.js";
 
 export async function runInteractiveBrowser(sessions, io) {
@@ -42,7 +41,7 @@ export async function runInteractiveBrowser(sessions, io) {
     const lines = [];
 
     lines.push("agent-history");
-    lines.push("arrows move, Enter prints resume command, Ctrl+e details, / search, q exits");
+    lines.push("j/k/arrows move, Enter prints resume command, Ctrl+e details, / search, q exits");
     lines.push("");
 
     const cursor = state.mode === "search" ? "_" : "";
@@ -62,8 +61,8 @@ export async function runInteractiveBrowser(sessions, io) {
     visibleWindow.forEach((session, windowIndex) => {
       const index = start + windowIndex;
       const prefix = index === state.selectedIndex ? "> " : "  ";
-      const fixed = `${prefix}${session.agent.padEnd(6)} ${formatLocalDate(session.updatedAt ?? session.startedAt).padEnd(22)} ${shortenId(session.id).padEnd(12)} `;
-      const project = truncateMiddle(formatProject(session), 30);
+      const fixed = `${prefix}${session.agent.padEnd(6)} ${formatCompactDate(session.updatedAt ?? session.startedAt).padEnd(16)} ${shortenId(session.id).padEnd(6)} `;
+      const project = truncateMiddle(formatProject(session), 38);
       lines.push(truncateRight(`${fixed}${project}  ${session.preview ?? "-"}`, width));
 
       if (state.expanded && index === state.selectedIndex) {

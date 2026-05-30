@@ -5,7 +5,7 @@ import { formatLocalDate } from "./lib/time.js";
 export function formatSessionTable(sessions) {
   const rows = sessions.map((session) => ({
     agent: session.agent,
-    updated: formatLocalDate(session.updatedAt ?? session.startedAt),
+    updated: formatCompactDate(session.updatedAt ?? session.startedAt),
     id: shortenId(session.id),
     project: truncate(formatProject(session), 42),
     preview: truncate(session.preview ?? "-", 80),
@@ -39,7 +39,7 @@ export function formatSessionDetail(session) {
 }
 
 export function shortenId(id) {
-  return id.length > 12 ? id.slice(0, 12) : id;
+  return shortenIdSuffix(id, 6);
 }
 
 export function basenameOrDash(filePath) {
@@ -71,6 +71,28 @@ function pad(value, width) {
 
 function truncate(value, width) {
   return value.length > width ? `${value.slice(0, width - 3)}...` : value;
+}
+
+export function formatCompactDate(value) {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return "-";
+  }
+
+  const year = value.getFullYear();
+  const month = padNumber(value.getMonth() + 1);
+  const day = padNumber(value.getDate());
+  const hours = padNumber(value.getHours());
+  const minutes = padNumber(value.getMinutes());
+
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+function shortenIdSuffix(id, length) {
+  return id.length > length ? id.slice(-length) : id;
+}
+
+function padNumber(value) {
+  return String(value).padStart(2, "0");
 }
 
 function compactHomePath(value) {
