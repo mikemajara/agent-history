@@ -1,0 +1,17 @@
+{
+  "name": "agent-history",
+  "version": "0.1.0",
+  "description": "Local CLI for finding and resuming AI agent sessions across local projects.",
+  "type": "module",
+  "bin": {
+    "agent-history": "./bin/agent-history.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "start": "node ./bin/agent-history.js",
+    "ls": "node ./bin/agent-history.js ls"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
