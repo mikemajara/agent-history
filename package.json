@@ -23,6 +23,7 @@
   "homepage": "https://github.com/mikemajara/agent-history#readme",
   "scripts": {
     "test": "node --test",
+    "prepublishOnly": "npm test",
     "start": "node ./bin/agent-history.js",
     "ls": "node ./bin/agent-history.js ls"
   },
