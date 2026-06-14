@@ -27,7 +27,7 @@ export async function runInteractiveBrowser(sessions, io) {
     }
     io.stdin.setRawMode(false);
     io.stdin.pause();
-    io.stdout.write("\x1b[?25h");
+    io.stdout.write("\x1b[2J\x1b[H\x1b[?25h");
   };
 
   io.stdout.write("\x1b[?25l\x1b[2J\x1b[H");
