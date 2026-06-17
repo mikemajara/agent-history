@@ -63,7 +63,7 @@ async function parseCursorSession(filePath, targetCwd, projectSlug = undefined) 
     cwd: targetCwd ?? sessionMeta?.payload?.cwd,
     preview: firstUserText,
     transcriptPath: filePath,
-    resumeCommand: ["agent", `--resume=${id}`],
+    resumeCommand: ["cursor-agent", `--resume=${id}`],
     metadata: {
       source: "cursor",
       rawCwd: sessionMeta?.payload?.cwd,

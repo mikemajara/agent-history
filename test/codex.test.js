@@ -1,13 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
+const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-history-codex-"));
+process.env.HOME = tempRoot;
+
+const { discoverCodexSessions } = await import("../src/providers/codex.js");
 
 test("codex preview logic skips wrapper metadata and keeps user prompt", async () => {
   const targetCwd = "/tmp/project";
-  const fs = await import("node:fs/promises");
-  const os = await import("node:os");
-  const path = await import("node:path");
-
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-history-codex-"));
   const sessionsRoot = path.join(tempRoot, ".codex", "sessions", "2026", "05", "29");
   await fs.mkdir(sessionsRoot, { recursive: true });
 
@@ -31,9 +34,32 @@ test("codex preview logic skips wrapper metadata and keeps user prompt", async (
   ].join("\n");
 
   await fs.writeFile(transcriptPath, lines);
-  process.env.HOME = tempRoot;
 
-  const { discoverCodexSessions } = await import("../src/providers/codex.js");
   const sessions = await discoverCodexSessions(targetCwd);
-  assert.equal(sessions[0]?.preview, "actual user prompt");
+  const session = sessions.find((s) => s.id === "abc123");
+  assert.equal(session?.preview, "actual user prompt");
+});
+
+test("codex resume command uses codex resume <id>", async () => {
+  const targetCwd = "/tmp/codex-project";
+  const sessionsRoot = path.join(tempRoot, ".codex", "sessions", "2026", "06", "14");
+  await fs.mkdir(sessionsRoot, { recursive: true });
+
+  const sessionId = "67d8a4d1-f10c-4f6e-9ce9-0b1234567890";
+  const transcriptPath = path.join(sessionsRoot, `rollout-${sessionId}.jsonl`);
+  const lines = [
+    JSON.stringify({
+      timestamp: "2026-06-14T10:00:00.000Z",
+      type: "session_meta",
+      payload: { id: sessionId, timestamp: "2026-06-14T10:00:00.000Z", cwd: targetCwd },
+    }),
+  ].join("\n");
+
+  await fs.writeFile(transcriptPath, lines);
+
+  const sessions = await discoverCodexSessions(targetCwd);
+  const session = sessions.find((s) => s.id === sessionId);
+  assert.ok(session, "expected to find codex session by id");
+  assert.deepEqual(session?.resumeCommand, ["codex", "resume", sessionId]);
+  assert.equal(session?.resumeCommand?.join(" "), `codex resume ${sessionId}`);
 });

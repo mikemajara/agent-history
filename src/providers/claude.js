@@ -73,7 +73,7 @@ async function parseClaudeSession(filePath, targetCwd, historyIndex, projectSlug
     cwd,
     preview: historyMatch?.preview ?? findClaudePreview(records),
     transcriptPath: filePath,
-    resumeCommand: ["claude", "resume", sessionId],
+    resumeCommand: ["claude", "--resume", sessionId],
     metadata: {
       source: "claude",
       projectSlug,

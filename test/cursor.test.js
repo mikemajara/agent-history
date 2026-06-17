@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-test("cursor resume command uses agent --resume=<id>", async () => {
+test("cursor resume command uses cursor-agent --resume=<id>", async () => {
   const targetCwd = "/tmp/project";
   const fs = await import("node:fs/promises");
   const os = await import("node:os");
@@ -32,6 +32,6 @@ test("cursor resume command uses agent --resume=<id>", async () => {
   const sessions = await discoverCursorSessions(targetCwd);
 
   assert.equal(sessions.length, 1);
-  assert.deepEqual(sessions[0]?.resumeCommand, ["agent", `--resume=${sessionId}`]);
-  assert.equal(sessions[0]?.resumeCommand?.join(" "), `agent --resume=${sessionId}`);
+  assert.deepEqual(sessions[0]?.resumeCommand, ["cursor-agent", `--resume=${sessionId}`]);
+  assert.equal(sessions[0]?.resumeCommand?.join(" "), `cursor-agent --resume=${sessionId}`);
 });
