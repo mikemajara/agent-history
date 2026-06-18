@@ -1,6 +1,6 @@
 {
   "name": "agent-history",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Local CLI for finding and resuming AI agent sessions across local projects.",
   "license": "MIT",
   "type": "module",
