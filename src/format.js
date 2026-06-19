@@ -21,7 +21,7 @@ export function formatSessionDetail(session) {
     `updated: ${formatLocalDate(session.updatedAt ?? session.startedAt)}`,
     `cwd: ${session.cwd ?? "-"}`,
     `transcript: ${session.transcriptPath ?? "-"}`,
-    `resume: ${session.resumeCommand?.join(" ") ?? "-"}`,
+    `resume: ${formatResumeCommand(session) ?? "-"}`,
     `preview: ${session.preview ?? "-"}`,
   ];
 
@@ -36,6 +36,19 @@ export function formatSessionDetail(session) {
   }
 
   return lines.join("\n");
+}
+
+export function formatResumeCommand(session) {
+  if (!session?.resumeCommand) {
+    return undefined;
+  }
+
+  const command = session.resumeCommand.join(" ");
+  return session.cwd ? `cd ${quoteShellArg(session.cwd)} && ${command}` : command;
+}
+
+function quoteShellArg(value) {
+  return /^[A-Za-z0-9_./-]+$/.test(value) ? value : `'${value.replace(/'/g, "'\\''")}'`;
 }
 
 export function shortenId(id) {

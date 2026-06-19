@@ -1,5 +1,5 @@
 import readline from "node:readline";
-import { formatCompactDate, formatProject, shortenId } from "./format.js";
+import { formatCompactDate, formatProject, formatResumeCommand, shortenId } from "./format.js";
 import { clampSelection, createBrowserState, getVisibleSessions, handleBrowserInput, setSearchIndex } from "./tui/state.js";
 import { buildIndex } from "./lib/search.js";
 
@@ -84,7 +84,7 @@ export async function runInteractiveBrowser(sessions, io) {
       if (state.expanded && index === state.selectedIndex) {
         lines.push(truncateRight(`    cwd: ${session.cwd ?? "-"}`, width));
         lines.push(truncateRight(`    file: ${session.transcriptPath ?? "-"}`, width));
-        lines.push(truncateRight(`    resume: ${session.resumeCommand?.join(" ") ?? "-"}`, width));
+        lines.push(truncateRight(`    resume: ${formatResumeCommand(session) ?? "-"}`, width));
       }
 
       if (hasSnippets) {
@@ -141,7 +141,7 @@ export async function runInteractiveBrowser(sessions, io) {
         const selected = visibleSessions[state.selectedIndex];
         if (selected?.resumeCommand) {
           cleanup();
-          io.stdout.write(`${selected.resumeCommand.join(" ")}\n`);
+          io.stdout.write(`${formatResumeCommand(selected)}\n`);
           resolve(0);
         }
         return;

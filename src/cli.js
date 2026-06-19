@@ -1,4 +1,4 @@
-import { formatSessionDetail, formatSessionTable } from "./format.js";
+import { formatResumeCommand, formatSessionDetail, formatSessionTable } from "./format.js";
 import { getAllSessions, getSessionsForCwd } from "./session-index.js";
 import { runInteractiveBrowser } from "./tui.js";
 
@@ -40,7 +40,7 @@ export async function main(argv, io) {
       return;
     }
 
-    io.stdout.write(`${session.resumeCommand.join(" ")}\n`);
+    io.stdout.write(`${formatResumeCommand(session)}\n`);
     return;
   }
 
