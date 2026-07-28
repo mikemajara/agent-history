@@ -83,3 +83,32 @@ test("escape clears query and exits search mode", () => {
   assert.equal(state.mode, "normal");
   assert.equal(state.search, "");
 });
+
+test("scope and sort controls operate over the preloaded session collection", () => {
+  const datedSessions = [
+    { agent: "codex", id: "old", cwd: "/tmp/project", startedAt: new Date("2026-01-05"), updatedAt: new Date("2026-01-03") },
+    { agent: "cursor", id: "new", cwd: "/tmp/other", startedAt: new Date("2026-01-04"), updatedAt: new Date("2026-01-05") },
+  ];
+  const state = createBrowserState(datedSessions, { currentCwd: "/tmp/project", initialScope: "cwd" });
+
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["old"]);
+  assert.equal(handleBrowserInput(state, undefined, { name: "right" }), "render");
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["new", "old"]);
+
+  assert.equal(handleBrowserInput(state, undefined, { name: "tab" }), "render");
+  assert.equal(state.focusedControl, "sort");
+  assert.equal(handleBrowserInput(state, undefined, { name: "right" }), "render");
+  assert.equal(state.sort, "created");
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["old", "new"]);
+});
+
+test("printable input starts search without requiring slash", () => {
+  const state = createBrowserState([
+    { agent: "codex", id: "first", preview: "alpha" },
+    { agent: "codex", id: "second", preview: "bravo" },
+  ]);
+
+  assert.equal(handleBrowserInput(state, "b", {}), "render");
+  assert.equal(state.search, "b");
+  assert.equal(getVisibleSessions(state)[0]?.id, "second");
+});

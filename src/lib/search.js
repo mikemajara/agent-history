@@ -31,7 +31,7 @@ function extractTurnFromRecord(record, agent) {
   }
 
   if (agent === "cursor") {
-    const role = record?.role;
+    const role = record?.role ?? record?.payload?.role;
     if (role !== "user" && role !== "assistant") return null;
     const content = record?.payload?.content ?? record?.message?.content;
     const raw = typeof content === "string" ? content : extractTextFromContent(content);
@@ -89,7 +89,14 @@ export async function buildIndex(sessions) {
 
   const docs = sessions.map((s, i) => {
     const turns = allTurns[i];
-    const fullText = turns.map((t) => t.text).join(" ");
+    const metadataText = [
+      s.agent,
+      s.id,
+      s.cwd,
+      s.preview,
+      s.metadata ? JSON.stringify(s.metadata) : "",
+    ].filter(Boolean).join(" ");
+    const fullText = `${metadataText} ${turns.map((t) => t.text).join(" ")}`;
     const tokens = tokenize(fullText);
     return { id: s.id, tokens, length: tokens.length, turns };
   });

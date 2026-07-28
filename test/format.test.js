@@ -25,6 +25,13 @@ test("formats home paths compactly", () => {
   assert.equal(formatProject({ cwd: path.join(os.homedir(), "github", "repo") }), "~/github/repo");
 });
 
+test("keeps encoded project slugs when the canonical path is unavailable", () => {
+  assert.equal(
+    formatProject({ metadata: { projectSlug: "Users-miguel-github/project-with-a-hyphen" } }),
+    "Users-miguel-github/project-with-a-hyphen",
+  );
+});
+
 test("shortens ids from the end", () => {
   assert.equal(shortenId("1234567890abcdef"), "abcdef");
 });

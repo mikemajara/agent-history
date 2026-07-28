@@ -6,53 +6,59 @@ import { createBrowserState } from "../src/tui/state.js";
 const session = {
   agent: "claude",
   id: "11111111-2222-4333-8444-555555555555",
+  startedAt: new Date("2026-07-10T10:00:00Z"),
   updatedAt: new Date("2026-07-13T12:00:00Z"),
   cwd: "/Users/miguel/github/a-project-with-a-long-name",
   preview: "short prompt preview",
-  transcriptPath: "/Users/miguel/.claude/projects/a-project/11111111-2222-4333-8444-555555555555.jsonl",
   resumeCommand: ["claude", "--resume", "11111111-2222-4333-8444-555555555555"],
   metadata: {
     model: "claude-opus-4",
     branch: "feature/session-details",
-    entrypoint: "cli",
-    version: "1.2.3",
   },
 };
 
-test("details panel shows complete selected-session metadata and indexed context", () => {
+function plain(output) {
+  return output.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+test("100x30 frame follows the header, row, details, and footer contract", () => {
   const state = createBrowserState([session]);
+  state.now = new Date("2026-07-15T12:00:00Z");
   state.expanded = true;
   state.searchIndex = {
-    docs: [{ turns: [{ role: "user", text: "A richer prompt with context that is available from the transcript index." }] }],
+    docs: [{
+      turns: [
+        { role: "user", text: "A richer prompt with context that is available from the transcript index." },
+        { role: "assistant", text: "I will inspect the session details." },
+      ],
+    }],
   };
 
-  const output = renderBrowserFrame(state, 100, 30);
-  const compactOutput = output.replace(/\s+/g, " ");
+  const lines = plain(renderBrowserFrame(state, 100, 30)).split("\n");
 
-  assert.match(output, /─ details ─/);
-  assert.match(output, /provider: claude/);
-  assert.match(output, /id: 11111111-2222-4333-8444-555555555555/);
-  assert.match(output, /project: \/Users\/miguel\/github\/a-project-with-a-long-name/);
-  assert.match(compactOutput, /transcript: \/Users\/miguel\/\.claude\/projects\/a-project\/11111111-2222-4333-8444-555555555555\.jsonl/);
-  assert.match(output, /model: claude-opus-4/);
-  assert.match(output, /branch: feature\/session-details/);
-  assert.match(output, /entrypoint: cli/);
-  assert.match(output, /version: 1\.2\.3/);
-  assert.match(compactOutput, /resume: cd \/Users\/miguel\/github\/a-project-with-a-long-name && claude --resume/);
-  assert.match(output, /A richer prompt with context that is available from the transcript index\./);
+  assert.equal(lines[0].trim(), "Resume a previous session");
+  assert.match(lines[2], /Type to search.*Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
+  assert.match(lines.find((line) => line.includes("claude  short prompt preview")), /⌄ 2d ago/);
+  assert.match(lines.join("\n"), /Session:\s+11111111-2222-4333-8444-555555555555/);
+  assert.match(lines.join("\n"), /Model:\s+claude-opus-4/);
+  assert.match(lines.join("\n"), /Branch:\s+feature\/session-details/);
+  assert.match(lines.join("\n"), /you: A richer prompt with context/);
+  assert.match(lines.at(-2), /enter resume   esc exit   ctrl\+c exit   tab focus filter\/sort/);
+  assert.match(lines.at(-1), /ctrl\+e expand   ↑\/↓ browse.*1 \/ 1 · 100%/);
+  assert.ok(lines.every((line) => line.length <= 100));
 });
 
-test("index rows stay single-line when the details panel is open", () => {
+test("60x16 frame keeps controls and rows within the terminal", () => {
   const state = createBrowserState([session]);
+  state.now = new Date("2026-07-15T12:00:00Z");
   state.expanded = true;
 
-  const width = 70;
-  const output = renderBrowserFrame(state, width, 24);
-  const lines = output.split("\n");
-  const indexLines = lines.filter((line) => line.startsWith("> "));
+  const lines = plain(renderBrowserFrame(state, 60, 16)).split("\n");
 
-  assert.equal(indexLines.length, 1);
-  assert.ok(indexLines[0].length <= width);
-  assert.ok(lines.every((line) => line.length <= width));
-  assert.doesNotMatch(indexLines[0], /cwd:|transcript:|resume:/);
+  assert.equal(lines[0].trim(), "Resume a previous session");
+  assert.match(lines[2], /Type to search/);
+  assert.match(lines[3], /Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
+  assert.match(lines.at(-2), /enter resume   esc exit   tab focus/);
+  assert.match(lines.at(-1), /ctrl\+e expand   ↑\/↓ browse/);
+  assert.ok(lines.every((line) => line.length <= 60));
 });

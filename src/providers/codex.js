@@ -46,6 +46,7 @@ async function parseCodexSession(filePath, targetCwd) {
     transcriptPath: filePath,
     resumeCommand: ["codex", "resume", id],
     metadata: {
+      branch: sessionMeta.payload.git?.branch,
       model: turnContext?.payload?.model,
       modelProvider: sessionMeta.payload.model_provider,
       cliVersion: sessionMeta.payload.cli_version,

@@ -1,9 +1,10 @@
 import readline from "node:readline";
-import { formatCompactDate, formatProject, formatResumeCommand, shortenId } from "./format.js";
+import { formatResumeCommand } from "./format.js";
 import { clampSelection, createBrowserState, getVisibleSessions, handleBrowserInput, setSearchIndex } from "./tui/state.js";
+import { renderBrowserFrame } from "./tui/render.js";
 import { buildIndex } from "./lib/search.js";
 
-export async function runInteractiveBrowser(sessions, io) {
+export async function runInteractiveBrowser(sessions, io, options = {}) {
   if (!io.stdin.isTTY || !io.stdout.isTTY) {
     io.stderr.write("Interactive mode requires a TTY. Use `agent-history ls` in non-interactive shells.\n");
     return 1;
@@ -14,7 +15,7 @@ export async function runInteractiveBrowser(sessions, io) {
     return 0;
   }
 
-  const state = createBrowserState(sessions);
+  const state = createBrowserState(sessions, options);
   state.indexing = true;
 
   readline.emitKeypressEvents(io.stdin);
@@ -22,12 +23,16 @@ export async function runInteractiveBrowser(sessions, io) {
   io.stdin.resume();
 
   let onKeypress = undefined;
+  let onResize = undefined;
   let active = true;
 
   const cleanup = () => {
     active = false;
     if (onKeypress) {
       io.stdin.off("keypress", onKeypress);
+    }
+    if (onResize) {
+      process.off("SIGWINCH", onResize);
     }
     io.stdin.setRawMode(false);
     io.stdin.pause();
@@ -43,8 +48,11 @@ export async function runInteractiveBrowser(sessions, io) {
   };
 
   render();
+  onResize = () => {
+    if (active) render();
+  };
+  process.on("SIGWINCH", onResize);
 
-  // Build full-text index in background; re-render when done
   buildIndex(sessions).then((index) => {
     if (!active) return;
     setSearchIndex(state, index);
@@ -88,244 +96,4 @@ export async function runInteractiveBrowser(sessions, io) {
   });
 }
 
-export function renderBrowserFrame(state, width, height) {
-  const visibleSessions = getVisibleSessions(state);
-  clampSelection(state, visibleSessions);
-
-  const lines = [
-    "agent-history",
-    "j/k/arrows move, Enter prints resume command, Ctrl+e details, / search, q exits",
-    "",
-  ];
-
-  const cursor = state.mode === "search" ? "_" : "";
-  const matchCount = visibleSessions.length;
-  const indexNote = state.indexing ? " (indexing…)" : "";
-  lines.push(`search: ${state.search}${cursor} (${matchCount} match${matchCount === 1 ? "" : "es"}${indexNote})`);
-  lines.push("");
-
-  if (state.message) {
-    lines.push(state.message);
-    lines.push("");
-  }
-
-  const frameHeight = height - 1;
-  const headerRows = lines.length;
-  const hasSnippets = Boolean(state.search && state.searchIndex);
-  const rowsPerSession = hasSnippets ? 3 : 1;
-  const selectedSession = visibleSessions[state.selectedIndex];
-  const fullDetailLines = state.expanded && selectedSession
-    ? renderDetailsPanel(selectedSession, state, width)
-    : [];
-  const detailBudget = Math.max(frameHeight - headerRows - rowsPerSession, 0);
-  const detailLines = clipPanel(fullDetailLines, detailBudget, width);
-  const availableListRows = Math.max(frameHeight - headerRows - detailLines.length, rowsPerSession);
-  const maxSessions = Math.max(Math.floor(availableListRows / rowsPerSession), 1);
-  const queryTerms = state.search ? state.search.toLowerCase().split(/\s+/).filter(Boolean) : [];
-
-  const start = Math.max(
-    0,
-    Math.min(state.selectedIndex - Math.floor(maxSessions / 2), visibleSessions.length - maxSessions),
-  );
-  const visibleWindow = visibleSessions.slice(start, start + maxSessions);
-
-  for (let windowIndex = 0; windowIndex < visibleWindow.length; windowIndex++) {
-    const session = visibleWindow[windowIndex];
-    const index = start + windowIndex;
-    const prefix = index === state.selectedIndex ? "> " : "  ";
-    const fixed = `${prefix}${session.agent.padEnd(6)} ${formatCompactDate(session.updatedAt ?? session.startedAt).padEnd(16)} ${shortenId(session.id).padEnd(6)} `;
-    const project = truncateMiddle(formatProject(session), 38);
-    lines.push(truncateRight(`${fixed}${project}  ${session.preview ?? "-"}`, width));
-
-    if (hasSnippets) {
-      const snippet = state.snippetMap.get(session.id);
-      const compactCwd = session.cwd ? session.cwd.replace(process.env.HOME ?? "", "~") : "-";
-      const snippetRaw = snippet ? `    ${snippet.role === "assistant" ? "AI" : "you"}: ${snippet.text}` : "    ";
-      const snippetTruncated = truncateRight(snippetRaw, width);
-      lines.push(dim(highlightTerms(snippetTruncated, queryTerms)));
-      lines.push(dim(truncateRight(`    ${compactCwd}`, width)));
-    }
-  }
-
-  if (visibleSessions.length === 0) {
-    lines.push("No matching sessions.");
-  } else {
-    lines.push(...detailLines);
-  }
-
-  return lines
-    .slice(0, frameHeight)
-    .map((line) => formatFrameLine(line, width))
-    .join("\n");
-}
-
-function renderDetailsPanel(session, state, width) {
-  const metadata = session.metadata ?? {};
-  const lines = [panelHeader("details", width)];
-  const fields = [
-    ["provider", session.agent],
-    ["id", session.id],
-    ["project", session.cwd],
-    ["transcript", session.transcriptPath],
-    ["model", metadata.model],
-    ["branch", metadata.branch],
-    ["entrypoint", metadata.entrypoint],
-    ["version", metadata.version ?? metadata.cliVersion],
-    ["resume", formatResumeCommand(session)],
-  ];
-
-  for (const [label, value] of fields) {
-    if (value != null && value !== "") {
-      lines.push(...wrapLabeledValue(label, String(value), width));
-    }
-  }
-
-  const preview = getDetailPreview(session, state);
-  if (preview) {
-    lines.push("preview:");
-    lines.push(...wrapText(preview, Math.max(width - 2, 1)).map((line) => `  ${line}`));
-  }
-
-  return lines;
-}
-
-function getDetailPreview(session, state) {
-  const sessionIndex = state.sessions.indexOf(session);
-  const turns = state.searchIndex?.docs?.[sessionIndex]?.turns;
-  const contextTurn = turns?.find((turn) => turn.role === "user") ?? turns?.[0];
-  return contextTurn?.text ?? session.preview;
-}
-
-function panelHeader(label, width) {
-  const prefix = `─ ${label} `;
-  return `${prefix}${"─".repeat(Math.max(width - prefix.length, 0))}`;
-}
-
-function wrapLabeledValue(label, value, width) {
-  const prefix = `${label}: `;
-  const continuation = " ".repeat(prefix.length);
-  const valueWidth = Math.max(width - prefix.length, 1);
-  return wrapText(value, valueWidth).map((line, index) => `${index === 0 ? prefix : continuation}${line}`);
-}
-
-function wrapText(value, width) {
-  const words = String(value).replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
-  if (words.length === 0) {
-    return [];
-  }
-
-  const lines = [];
-  let line = "";
-
-  for (const word of words) {
-    const chunks = splitLongWord(word, width);
-    for (const chunk of chunks) {
-      if (!line) {
-        line = chunk;
-      } else if (line.length + chunk.length + 1 <= width) {
-        line += ` ${chunk}`;
-      } else {
-        lines.push(line);
-        line = chunk;
-      }
-
-      if (line.length === width) {
-        lines.push(line);
-        line = "";
-      }
-    }
-  }
-
-  if (line) {
-    lines.push(line);
-  }
-
-  return lines;
-}
-
-function splitLongWord(word, width) {
-  const chunks = [];
-  for (let index = 0; index < word.length; index += width) {
-    chunks.push(word.slice(index, index + width));
-  }
-  return chunks;
-}
-
-function clipPanel(lines, budget, width) {
-  if (lines.length <= budget) {
-    return lines;
-  }
-
-  if (budget <= 0) {
-    return [];
-  }
-
-  const clipped = lines.slice(0, budget);
-  clipped[budget - 1] = truncateRight("… details clipped; enlarge the terminal to see more", width);
-  return clipped;
-}
-
-function dim(text) {
-  return `\x1b[2m${text}\x1b[0m`;
-}
-
-// Wraps each query term occurrence in bold, breaking out of dim for visibility.
-function highlightTerms(text, queryTerms) {
-  if (!queryTerms.length) return text;
-  const lower = text.toLowerCase();
-  const ranges = [];
-  for (const term of queryTerms) {
-    let pos = 0;
-    while ((pos = lower.indexOf(term, pos)) !== -1) {
-      ranges.push({ start: pos, end: pos + term.length });
-      pos += term.length;
-    }
-  }
-  if (!ranges.length) return text;
-  ranges.sort((a, b) => a.start - b.start);
-  // Merge overlapping
-  const merged = [ranges[0]];
-  for (let i = 1; i < ranges.length; i++) {
-    const last = merged[merged.length - 1];
-    if (ranges[i].start <= last.end) {
-      last.end = Math.max(last.end, ranges[i].end);
-    } else {
-      merged.push(ranges[i]);
-    }
-  }
-  let result = "";
-  let cursor = 0;
-  for (const { start, end } of merged) {
-    result += text.slice(cursor, start);
-    // \x1b[0m resets dim, \x1b[1m applies bold, \x1b[0m\x1b[2m restores dim after
-    result += `\x1b[0m\x1b[1m${text.slice(start, end)}\x1b[0m\x1b[2m`;
-    cursor = end;
-  }
-  result += text.slice(cursor);
-  return result;
-}
-
-function truncateRight(value, width) {
-  const text = String(value ?? "");
-  return text.length > width ? `${text.slice(0, Math.max(width - 3, 0))}...` : text;
-}
-
-function formatFrameLine(value, width) {
-  const text = String(value ?? "");
-  const stripped = text.replace(/\x1b\[[0-9;]*m/g, "");
-  if (stripped.length > width) {
-    return truncateRight(stripped, width).padEnd(width, " ");
-  }
-  return text + " ".repeat(Math.max(width - stripped.length, 0));
-}
-
-function truncateMiddle(value, width) {
-  const text = String(value ?? "-");
-  if (text.length <= width) {
-    return text.padEnd(width);
-  }
-
-  const left = Math.ceil((width - 3) / 2);
-  const right = Math.floor((width - 3) / 2);
-  return `${text.slice(0, left)}...${text.slice(text.length - right)}`;
-}
+export { renderBrowserFrame };

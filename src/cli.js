@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { formatResumeCommand, formatSessionDetail, formatSessionTable } from "./format.js";
 import { getAllSessions, getSessionsForCwd } from "./session-index.js";
+import { resolveTargetCwd } from "./lib/path-utils.js";
 import { runInteractiveBrowser } from "./tui.js";
 
 const { version } = createRequire(import.meta.url)("../package.json");
@@ -16,7 +17,12 @@ Usage:
 
 Options:
   -h, --help                  Show this help
-  -v, --version               Show version`;
+  -v, --version               Show version
+
+Interactive controls:
+  tab focus filter/sort       left/right change Cwd/All or Updated/Created
+  up/down or j/k browse       type to search, / search, Ctrl+e details
+  Enter resume                Esc exit/clear, Ctrl+C exit`;
 
 export async function main(argv, io) {
   const [command, arg] = argv;
@@ -33,7 +39,10 @@ export async function main(argv, io) {
 
   if (!command) {
     const sessions = await getAllSessions();
-    const exitCode = await runInteractiveBrowser(sessions, io);
+    const exitCode = await runInteractiveBrowser(sessions, io, {
+      currentCwd: await resolveTargetCwd(),
+      initialScope: "all",
+    });
     process.exitCode = exitCode;
     return;
   }
@@ -70,8 +79,11 @@ export async function main(argv, io) {
     return;
   }
 
-  const sessions = await getSessionsForCwd(command);
-  const exitCode = await runInteractiveBrowser(sessions, io);
+  const sessions = await getAllSessions();
+  const exitCode = await runInteractiveBrowser(sessions, io, {
+    currentCwd: await resolveTargetCwd(command),
+    initialScope: "cwd",
+  });
   process.exitCode = exitCode;
 }
 

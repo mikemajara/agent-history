@@ -1,10 +1,16 @@
 import { formatProject } from "../format.js";
 import { search } from "../lib/search.js";
+import { matchesSessionCwd } from "../session-index.js";
 
-export function createBrowserState(sessions) {
+export function createBrowserState(sessions, options = {}) {
   return {
     sessions,
+    currentCwd: options.currentCwd,
+    scope: options.initialScope ?? "all",
+    sort: "updated",
+    focusedControl: "filter",
     selectedIndex: 0,
+    selectedId: sessions[0]?.id,
     expanded: false,
     mode: "normal",
     search: "",
@@ -17,17 +23,19 @@ export function createBrowserState(sessions) {
 }
 
 export function getVisibleSessions(state) {
-  if (!state.search) {
-    return state.sessions;
+  const scopedSessions = getScopedSessions(state);
+  let visibleSessions = scopedSessions;
+
+  if (state.search && state.rankedSessions !== null) {
+    const allowed = new Set(scopedSessions);
+    visibleSessions = state.rankedSessions.filter((session) => allowed.has(session));
+  } else if (state.search) {
+    // Fallback substring filter while index is loading
+    const query = state.search.toLowerCase();
+    visibleSessions = scopedSessions.filter((session) => getSearchFields(session).some((value) => value.includes(query)));
   }
 
-  if (state.rankedSessions !== null) {
-    return state.rankedSessions;
-  }
-
-  // Fallback substring filter while index is loading
-  const query = state.search.toLowerCase();
-  return state.sessions.filter((session) => getSearchFields(session).some((value) => value.includes(query)));
+  return sortSessions(visibleSessions, state.sort);
 }
 
 export function setSearchIndex(state, index) {
@@ -50,6 +58,26 @@ function updateSearchResults(state) {
   );
 }
 
+function getScopedSessions(state) {
+  if (state.scope !== "cwd" || !state.currentCwd) {
+    return state.sessions;
+  }
+
+  return state.sessions.filter((session) => matchesSessionCwd(session, state.currentCwd));
+}
+
+function sortSessions(sessions, sort) {
+  const valueFor = (session) => {
+    if (sort === "created") {
+      return session.startedAt?.getTime() ?? session.updatedAt?.getTime() ?? 0;
+    }
+
+    return session.updatedAt?.getTime() ?? session.startedAt?.getTime() ?? 0;
+  };
+
+  return [...sessions].sort((left, right) => valueFor(right) - valueFor(left) || left.id.localeCompare(right.id));
+}
+
 export function handleBrowserInput(state, str, key) {
   const visibleSessions = getVisibleSessions(state);
 
@@ -69,6 +97,20 @@ function handleNormalInput(state, str, key, visibleSessions) {
     return "exit";
   }
 
+  if (key?.name === "escape") {
+    if (state.expanded) {
+      state.expanded = false;
+      return "render";
+    }
+
+    if (state.search) {
+      clearSearch(state);
+      return "render";
+    }
+
+    return "exit";
+  }
+
   if (key?.name === "down" || str === "j") {
     moveSelection(state, 1, visibleSessions);
     return "render";
@@ -85,11 +127,22 @@ function handleNormalInput(state, str, key, visibleSessions) {
   }
 
   if (key?.ctrl && key.name === "u") {
-    state.search = "";
-    state.selectedIndex = 0;
-    state.message = "";
-    state.rankedSessions = null;
-    state.snippetMap = new Map();
+    clearSearch(state);
+    return "render";
+  }
+
+  if (key?.name === "tab") {
+    state.focusedControl = state.focusedControl === "filter" ? "sort" : "filter";
+    return "render";
+  }
+
+  if (key?.name === "left" || key?.name === "right") {
+    if (state.focusedControl === "filter") {
+      state.scope = state.scope === "all" ? "cwd" : "all";
+    } else {
+      state.sort = state.sort === "updated" ? "created" : "updated";
+    }
+    syncSelectedId(state, getVisibleSessions(state));
     return "render";
   }
 
@@ -107,6 +160,14 @@ function handleNormalInput(state, str, key, visibleSessions) {
 
   if (key?.name === "return") {
     return "select";
+  }
+
+  if (isPrintable(str, key)) {
+    state.search += str;
+    state.selectedIndex = 0;
+    updateSearchResults(state);
+    state.selectedId = getVisibleSessions(state)[0]?.id;
+    return "render";
   }
 
   return "ignore";
@@ -134,14 +195,12 @@ function handleSearchInput(state, str, key, visibleSessions) {
     state.search = state.search.slice(0, -1);
     state.selectedIndex = 0;
     updateSearchResults(state);
+    state.selectedId = getVisibleSessions(state)[0]?.id;
     return "render";
   }
 
   if (key?.ctrl && key.name === "u") {
-    state.search = "";
-    state.selectedIndex = 0;
-    state.rankedSessions = null;
-    state.snippetMap = new Map();
+    clearSearch(state);
     return "render";
   }
 
@@ -159,6 +218,7 @@ function handleSearchInput(state, str, key, visibleSessions) {
     state.search += str;
     state.selectedIndex = 0;
     updateSearchResults(state);
+    state.selectedId = getVisibleSessions(state)[0]?.id;
     return "render";
   }
 
@@ -167,16 +227,35 @@ function handleSearchInput(state, str, key, visibleSessions) {
 
 function moveSelection(state, delta, visibleSessions) {
   state.selectedIndex += delta;
+  state.selectedId = undefined;
   clampSelection(state, visibleSessions);
 }
 
 export function clampSelection(state, visibleSessions = getVisibleSessions(state)) {
   if (visibleSessions.length === 0) {
     state.selectedIndex = 0;
+    state.selectedId = undefined;
     return;
   }
 
-  state.selectedIndex = Math.max(0, Math.min(state.selectedIndex, visibleSessions.length - 1));
+  const selectedIndex = state.selectedId ? visibleSessions.findIndex((session) => session.id === state.selectedId) : -1;
+  state.selectedIndex = selectedIndex >= 0
+    ? selectedIndex
+    : Math.max(0, Math.min(state.selectedIndex, visibleSessions.length - 1));
+  state.selectedId = visibleSessions[state.selectedIndex]?.id;
+}
+
+function syncSelectedId(state, visibleSessions) {
+  clampSelection(state, visibleSessions);
+}
+
+function clearSearch(state) {
+  state.search = "";
+  state.selectedIndex = 0;
+  state.message = "";
+  state.rankedSessions = null;
+  state.snippetMap = new Map();
+  state.selectedId = getVisibleSessions(state)[0]?.id;
 }
 
 function getSearchFields(session) {

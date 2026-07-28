@@ -19,7 +19,12 @@ test("codex preview logic skips wrapper metadata and keeps user prompt", async (
     JSON.stringify({
       timestamp: "2026-05-29T10:00:00.000Z",
       type: "session_meta",
-      payload: { id: "abc123", timestamp: "2026-05-29T10:00:00.000Z", cwd: targetCwd },
+      payload: {
+        id: "abc123",
+        timestamp: "2026-05-29T10:00:00.000Z",
+        cwd: targetCwd,
+        git: { branch: "feat/session-browser" },
+      },
     }),
     JSON.stringify({
       timestamp: "2026-05-29T10:00:01.000Z",
@@ -44,6 +49,7 @@ test("codex preview logic skips wrapper metadata and keeps user prompt", async (
   const session = sessions.find((s) => s.id === "abc123");
   assert.equal(session?.preview, "actual user prompt");
   assert.equal(session?.metadata?.model, "gpt-5-codex");
+  assert.equal(session?.metadata?.branch, "feat/session-browser");
 });
 
 test("codex resume command uses codex resume <id>", async () => {

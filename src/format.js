@@ -60,7 +60,7 @@ export function basenameOrDash(filePath) {
 }
 
 export function formatProject(session) {
-  return compactHomePath(session.cwd) ?? compactProjectSlug(session.metadata?.projectSlug) ?? "-";
+  return compactHomePath(session.cwd) ?? session.metadata?.projectSlug ?? "-";
 }
 
 function formatTable(rows, columns) {
@@ -115,20 +115,4 @@ function compactHomePath(value) {
 
   const home = os.homedir();
   return value === home || value.startsWith(`${home}${path.sep}`) ? `~${value.slice(home.length)}` : value;
-}
-
-function compactProjectSlug(value) {
-  if (!value || typeof value !== "string") {
-    return undefined;
-  }
-
-  const homeSlug = os.homedir().replace(path.parse(os.homedir()).root, "").split(path.sep).join("-");
-  const claudeHomeSlug = `-${homeSlug}`;
-  const slug = value.startsWith(claudeHomeSlug) ? value.slice(1) : value;
-
-  if (!slug.startsWith(`${homeSlug}-`)) {
-    return value;
-  }
-
-  return `~/${slug.slice(homeSlug.length + 1).split("-").join("/")}`;
 }

@@ -29,10 +29,16 @@ agent-history resume <id>
 
 ## Notes
 
-- Search is live in the browser once activated with `/`.
+- The no-argument browser preloads all sessions; passing a path starts with the
+  Cwd filter over that same collection.
+- Type to search, use Tab to focus Filter/Sort, and use Left/Right to change
+  Cwd/All or Updated/Created.
 - `Ctrl+e` toggles a details panel for the selected session.
-- `q` exits the browser.
+- `Esc` exits (or clears the active detail/search state); `q` remains a
+  compatibility exit key.
 - `Enter` prints the selected session's resume command.
+- Provider fields such as historical branch and model are shown only when the
+  local transcript contains them; discovery reads local files only.
 
 ## Releasing
 
