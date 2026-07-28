@@ -53,6 +53,7 @@ async function parseCursorSession(filePath, targetCwd, projectSlug = undefined) 
   const fileStat = await fs.stat(filePath);
   const firstUserText = findFirstUserText(records);
   const sessionMeta = records.find((record) => record?.type === "session_meta");
+  const modelRecord = records.find((record) => record?.payload?.model ?? record?.message?.model ?? record?.model);
   const id = sessionMeta?.payload?.id ?? path.basename(filePath, ".jsonl");
 
   return {
@@ -68,6 +69,7 @@ async function parseCursorSession(filePath, targetCwd, projectSlug = undefined) 
       source: "cursor",
       rawCwd: sessionMeta?.payload?.cwd,
       projectSlug,
+      model: modelRecord?.payload?.model ?? modelRecord?.message?.model ?? modelRecord?.model,
     },
   };
 }

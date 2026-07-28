@@ -28,6 +28,7 @@ export async function discoverCodexSessions(targetCwd = undefined) {
 async function parseCodexSession(filePath, targetCwd) {
   const records = await readJsonl(filePath);
   const sessionMeta = records.find((record) => record?.type === "session_meta");
+  const turnContext = records.find((record) => record?.type === "turn_context" && record?.payload?.model);
 
   if (!sessionMeta?.payload?.cwd || (targetCwd && sessionMeta.payload.cwd !== targetCwd)) {
     return null;
@@ -45,6 +46,7 @@ async function parseCodexSession(filePath, targetCwd) {
     transcriptPath: filePath,
     resumeCommand: ["codex", "resume", id],
     metadata: {
+      model: turnContext?.payload?.model,
       modelProvider: sessionMeta.payload.model_provider,
       cliVersion: sessionMeta.payload.cli_version,
       source: "codex",

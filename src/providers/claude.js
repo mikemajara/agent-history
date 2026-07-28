@@ -63,6 +63,7 @@ async function parseClaudeSession(filePath, targetCwd, historyIndex, projectSlug
   const sessionId = firstRecord.sessionId ?? firstRecord.session_id ?? path.basename(filePath, ".jsonl");
   const historyMatch = historyIndex.get(sessionId);
   const firstUserRecord = records.find((record) => record?.type === "user");
+  const modelRecord = records.find((record) => record?.message?.model ?? record?.model);
   const cwd = targetCwd ?? firstUserRecord?.cwd;
 
   return {
@@ -77,7 +78,7 @@ async function parseClaudeSession(filePath, targetCwd, historyIndex, projectSlug
     metadata: {
       source: "claude",
       projectSlug,
-      model: firstUserRecord?.model,
+      model: firstUserRecord?.model ?? modelRecord?.message?.model ?? modelRecord?.model,
       branch: firstUserRecord?.gitBranch,
       entrypoint: firstUserRecord?.entrypoint,
       version: firstUserRecord?.version,

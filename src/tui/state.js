@@ -101,7 +101,7 @@ function handleNormalInput(state, str, key, visibleSessions) {
 
   if (str === "?") {
     state.message =
-      "Controls: j/k/arrows navigate, Enter print resume, / search, Esc clear+leave search, Ctrl+u clear, q quit | Search matches all conversation text";
+      "Controls: j/k/arrows navigate, Ctrl+e details panel, Enter print resume, / search, Esc clear+leave search, Ctrl+u clear, q quit | Search matches all conversation text";
     return "render";
   }
 

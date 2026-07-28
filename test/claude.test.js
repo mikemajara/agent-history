@@ -26,6 +26,12 @@ test("claude resume command uses claude --resume <id>", async () => {
       cwd: targetCwd,
       message: { content: "fix the resume command" },
     }),
+    JSON.stringify({
+      sessionId,
+      timestamp: "2026-06-14T10:00:02.000Z",
+      type: "assistant",
+      message: { model: "claude-opus-4", content: [{ type: "text", text: "I'll fix it." }] },
+    }),
   ].join("\n");
 
   await fs.writeFile(transcriptPath, lines);
@@ -37,4 +43,5 @@ test("claude resume command uses claude --resume <id>", async () => {
   assert.equal(sessions.length, 1);
   assert.deepEqual(sessions[0]?.resumeCommand, ["claude", "--resume", sessionId]);
   assert.equal(sessions[0]?.resumeCommand?.join(" "), `claude --resume ${sessionId}`);
+  assert.equal(sessions[0]?.metadata?.model, "claude-opus-4");
 });

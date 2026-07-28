@@ -33,6 +33,15 @@ test("j and k navigate in normal mode", () => {
   assert.equal(state.selectedIndex, 0);
 });
 
+test("ctrl+e toggles the selected session details panel", () => {
+  const state = createBrowserState(sessions);
+
+  assert.equal(handleBrowserInput(state, undefined, { name: "e", ctrl: true }), "render");
+  assert.equal(state.expanded, true);
+  assert.equal(handleBrowserInput(state, undefined, { name: "e", ctrl: true }), "render");
+  assert.equal(state.expanded, false);
+});
+
 test("search mode treats q as text instead of quit", () => {
   const state = createBrowserState(sessions);
   handleBrowserInput(state, "/", {});

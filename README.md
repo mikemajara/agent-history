@@ -30,6 +30,7 @@ agent-history resume <id>
 ## Notes
 
 - Search is live in the browser once activated with `/`.
+- `Ctrl+e` toggles a details panel for the selected session.
 - `q` exits the browser.
 - `Enter` prints the selected session's resume command.
 

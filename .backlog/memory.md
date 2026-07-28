@@ -7,6 +7,7 @@
 - Keep provider parsers/indexing separate from the terminal UI so `agent-history ls` and the interactive browser share the same normalized session data.
 - The MVP browsing/search experience is done; remaining follow-up work is tracked in GitHub Issues.
 - The selected-session handoff still needs refinement. Do not silently overwrite the clipboard by default.
+- Keep session index rows single-line. `Ctrl+e` opens a dedicated details panel, which reuses the transcript search index for richer prompt context when available.
 
 ## Blockers
 

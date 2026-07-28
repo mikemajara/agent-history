@@ -37,77 +37,9 @@ export async function runInteractiveBrowser(sessions, io) {
   io.stdout.write("\x1b[?25l\x1b[2J\x1b[H");
 
   const render = () => {
-    const visibleSessions = getVisibleSessions(state);
-    clampSelection(state, visibleSessions);
-
     const width = Math.max(io.stdout.columns ?? 100, 60);
     const height = Math.max(io.stdout.rows ?? 24, 10);
-    const lines = [];
-
-    lines.push("agent-history");
-    lines.push("j/k/arrows move, Enter prints resume command, Ctrl+e details, / search, q exits");
-    lines.push("");
-
-    const cursor = state.mode === "search" ? "_" : "";
-    const matchCount = visibleSessions.length;
-    const indexNote = state.indexing ? " (indexing…)" : "";
-    lines.push(`search: ${state.search}${cursor} (${matchCount} match${matchCount === 1 ? "" : "es"}${indexNote})`);
-    lines.push("");
-
-    if (state.message) {
-      lines.push(state.message);
-      lines.push("");
-    }
-
-    const headerRows = lines.length;
-    const hasSnippets = state.search && state.searchIndex;
-    // Each session: 1 main row + (2 detail rows when search active)
-    const baseRowsPerSession = hasSnippets ? 3 : 1;
-    const availableRows = Math.max(height - headerRows - 1, 2);
-    const maxSessions = Math.max(Math.floor(availableRows / baseRowsPerSession), 1);
-    const queryTerms = state.search ? state.search.toLowerCase().split(/\s+/).filter(Boolean) : [];
-
-    const start = Math.max(
-      0,
-      Math.min(state.selectedIndex - Math.floor(maxSessions / 2), visibleSessions.length - maxSessions),
-    );
-    const visibleWindow = visibleSessions.slice(start, start + maxSessions);
-
-    for (let windowIndex = 0; windowIndex < visibleWindow.length; windowIndex++) {
-      const session = visibleWindow[windowIndex];
-      const index = start + windowIndex;
-      const prefix = index === state.selectedIndex ? "> " : "  ";
-      const fixed = `${prefix}${session.agent.padEnd(6)} ${formatCompactDate(session.updatedAt ?? session.startedAt).padEnd(16)} ${shortenId(session.id).padEnd(6)} `;
-      const project = truncateMiddle(formatProject(session), 38);
-      lines.push(truncateRight(`${fixed}${project}  ${session.preview ?? "-"}`, width));
-
-      if (state.expanded && index === state.selectedIndex) {
-        lines.push(truncateRight(`    cwd: ${session.cwd ?? "-"}`, width));
-        lines.push(truncateRight(`    file: ${session.transcriptPath ?? "-"}`, width));
-        lines.push(truncateRight(`    resume: ${formatResumeCommand(session) ?? "-"}`, width));
-      }
-
-      if (hasSnippets) {
-        const snippet = state.snippetMap.get(session.id);
-        const compactCwd = session.cwd ? session.cwd.replace(process.env.HOME ?? "", "~") : "-";
-
-        // Row 2: snippet with term highlighting (truncate plain text first, then add ANSI)
-        const snippetRaw = snippet ? `    ${snippet.role === "assistant" ? "AI" : "you"}: ${snippet.text}` : "    ";
-        const snippetTruncated = truncateRight(snippetRaw, width);
-        const snippetHighlighted = highlightTerms(snippetTruncated, queryTerms);
-        lines.push(dim(snippetHighlighted));
-
-        // Row 3: project directory
-        lines.push(dim(truncateRight(`    ${compactCwd}`, width)));
-      }
-    }
-
-    if (visibleSessions.length === 0) {
-      lines.push("No matching sessions.");
-    }
-
-    const clippedLines = lines.slice(0, height - 1).map((line) => formatFrameLine(line, width));
-    io.stdout.write(`\x1b[H${clippedLines.join("\n")}\x1b[J`);
+    io.stdout.write(`\x1b[H${renderBrowserFrame(state, width, height)}\x1b[J`);
   };
 
   render();
@@ -154,6 +86,183 @@ export async function runInteractiveBrowser(sessions, io) {
 
     io.stdin.on("keypress", onKeypress);
   });
+}
+
+export function renderBrowserFrame(state, width, height) {
+  const visibleSessions = getVisibleSessions(state);
+  clampSelection(state, visibleSessions);
+
+  const lines = [
+    "agent-history",
+    "j/k/arrows move, Enter prints resume command, Ctrl+e details, / search, q exits",
+    "",
+  ];
+
+  const cursor = state.mode === "search" ? "_" : "";
+  const matchCount = visibleSessions.length;
+  const indexNote = state.indexing ? " (indexing…)" : "";
+  lines.push(`search: ${state.search}${cursor} (${matchCount} match${matchCount === 1 ? "" : "es"}${indexNote})`);
+  lines.push("");
+
+  if (state.message) {
+    lines.push(state.message);
+    lines.push("");
+  }
+
+  const frameHeight = height - 1;
+  const headerRows = lines.length;
+  const hasSnippets = Boolean(state.search && state.searchIndex);
+  const rowsPerSession = hasSnippets ? 3 : 1;
+  const selectedSession = visibleSessions[state.selectedIndex];
+  const fullDetailLines = state.expanded && selectedSession
+    ? renderDetailsPanel(selectedSession, state, width)
+    : [];
+  const detailBudget = Math.max(frameHeight - headerRows - rowsPerSession, 0);
+  const detailLines = clipPanel(fullDetailLines, detailBudget, width);
+  const availableListRows = Math.max(frameHeight - headerRows - detailLines.length, rowsPerSession);
+  const maxSessions = Math.max(Math.floor(availableListRows / rowsPerSession), 1);
+  const queryTerms = state.search ? state.search.toLowerCase().split(/\s+/).filter(Boolean) : [];
+
+  const start = Math.max(
+    0,
+    Math.min(state.selectedIndex - Math.floor(maxSessions / 2), visibleSessions.length - maxSessions),
+  );
+  const visibleWindow = visibleSessions.slice(start, start + maxSessions);
+
+  for (let windowIndex = 0; windowIndex < visibleWindow.length; windowIndex++) {
+    const session = visibleWindow[windowIndex];
+    const index = start + windowIndex;
+    const prefix = index === state.selectedIndex ? "> " : "  ";
+    const fixed = `${prefix}${session.agent.padEnd(6)} ${formatCompactDate(session.updatedAt ?? session.startedAt).padEnd(16)} ${shortenId(session.id).padEnd(6)} `;
+    const project = truncateMiddle(formatProject(session), 38);
+    lines.push(truncateRight(`${fixed}${project}  ${session.preview ?? "-"}`, width));
+
+    if (hasSnippets) {
+      const snippet = state.snippetMap.get(session.id);
+      const compactCwd = session.cwd ? session.cwd.replace(process.env.HOME ?? "", "~") : "-";
+      const snippetRaw = snippet ? `    ${snippet.role === "assistant" ? "AI" : "you"}: ${snippet.text}` : "    ";
+      const snippetTruncated = truncateRight(snippetRaw, width);
+      lines.push(dim(highlightTerms(snippetTruncated, queryTerms)));
+      lines.push(dim(truncateRight(`    ${compactCwd}`, width)));
+    }
+  }
+
+  if (visibleSessions.length === 0) {
+    lines.push("No matching sessions.");
+  } else {
+    lines.push(...detailLines);
+  }
+
+  return lines
+    .slice(0, frameHeight)
+    .map((line) => formatFrameLine(line, width))
+    .join("\n");
+}
+
+function renderDetailsPanel(session, state, width) {
+  const metadata = session.metadata ?? {};
+  const lines = [panelHeader("details", width)];
+  const fields = [
+    ["provider", session.agent],
+    ["id", session.id],
+    ["project", session.cwd],
+    ["transcript", session.transcriptPath],
+    ["model", metadata.model],
+    ["branch", metadata.branch],
+    ["entrypoint", metadata.entrypoint],
+    ["version", metadata.version ?? metadata.cliVersion],
+    ["resume", formatResumeCommand(session)],
+  ];
+
+  for (const [label, value] of fields) {
+    if (value != null && value !== "") {
+      lines.push(...wrapLabeledValue(label, String(value), width));
+    }
+  }
+
+  const preview = getDetailPreview(session, state);
+  if (preview) {
+    lines.push("preview:");
+    lines.push(...wrapText(preview, Math.max(width - 2, 1)).map((line) => `  ${line}`));
+  }
+
+  return lines;
+}
+
+function getDetailPreview(session, state) {
+  const sessionIndex = state.sessions.indexOf(session);
+  const turns = state.searchIndex?.docs?.[sessionIndex]?.turns;
+  const contextTurn = turns?.find((turn) => turn.role === "user") ?? turns?.[0];
+  return contextTurn?.text ?? session.preview;
+}
+
+function panelHeader(label, width) {
+  const prefix = `─ ${label} `;
+  return `${prefix}${"─".repeat(Math.max(width - prefix.length, 0))}`;
+}
+
+function wrapLabeledValue(label, value, width) {
+  const prefix = `${label}: `;
+  const continuation = " ".repeat(prefix.length);
+  const valueWidth = Math.max(width - prefix.length, 1);
+  return wrapText(value, valueWidth).map((line, index) => `${index === 0 ? prefix : continuation}${line}`);
+}
+
+function wrapText(value, width) {
+  const words = String(value).replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  if (words.length === 0) {
+    return [];
+  }
+
+  const lines = [];
+  let line = "";
+
+  for (const word of words) {
+    const chunks = splitLongWord(word, width);
+    for (const chunk of chunks) {
+      if (!line) {
+        line = chunk;
+      } else if (line.length + chunk.length + 1 <= width) {
+        line += ` ${chunk}`;
+      } else {
+        lines.push(line);
+        line = chunk;
+      }
+
+      if (line.length === width) {
+        lines.push(line);
+        line = "";
+      }
+    }
+  }
+
+  if (line) {
+    lines.push(line);
+  }
+
+  return lines;
+}
+
+function splitLongWord(word, width) {
+  const chunks = [];
+  for (let index = 0; index < word.length; index += width) {
+    chunks.push(word.slice(index, index + width));
+  }
+  return chunks;
+}
+
+function clipPanel(lines, budget, width) {
+  if (lines.length <= budget) {
+    return lines;
+  }
+
+  if (budget <= 0) {
+    return [];
+  }
+
+  const clipped = lines.slice(0, budget);
+  clipped[budget - 1] = truncateRight("… details clipped; enlarge the terminal to see more", width);
+  return clipped;
 }
 
 function dim(text) {

@@ -23,6 +23,11 @@ test("codex preview logic skips wrapper metadata and keeps user prompt", async (
     }),
     JSON.stringify({
       timestamp: "2026-05-29T10:00:01.000Z",
+      type: "turn_context",
+      payload: { model: "gpt-5-codex" },
+    }),
+    JSON.stringify({
+      timestamp: "2026-05-29T10:00:01.500Z",
       type: "response_item",
       payload: { type: "message", role: "user", content: [{ type: "input_text", text: "<environment_context>ignored</environment_context>" }] },
     }),
@@ -38,6 +43,7 @@ test("codex preview logic skips wrapper metadata and keeps user prompt", async (
   const sessions = await discoverCodexSessions(targetCwd);
   const session = sessions.find((s) => s.id === "abc123");
   assert.equal(session?.preview, "actual user prompt");
+  assert.equal(session?.metadata?.model, "gpt-5-codex");
 });
 
 test("codex resume command uses codex resume <id>", async () => {
