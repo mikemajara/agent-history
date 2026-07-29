@@ -191,6 +191,21 @@ function handleSearchInput(state, str, key, visibleSessions) {
     return "render";
   }
 
+  if (key?.name === "tab") {
+    state.focusedControl = state.focusedControl === "filter" ? "sort" : "filter";
+    return "render";
+  }
+
+  if (key?.name === "left" || key?.name === "right") {
+    if (state.focusedControl === "filter") {
+      state.scope = state.scope === "all" ? "cwd" : "all";
+    } else {
+      state.sort = state.sort === "updated" ? "created" : "updated";
+    }
+    syncSelectedId(state, getVisibleSessions(state));
+    return "render";
+  }
+
   if (key?.name === "backspace" || key?.name === "delete") {
     state.search = state.search.slice(0, -1);
     state.selectedIndex = 0;
