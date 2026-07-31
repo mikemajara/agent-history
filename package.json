@@ -1,6 +1,6 @@
 {
   "name": "agent-history",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Local CLI for finding and resuming AI agent sessions across local projects.",
   "license": "MIT",
   "type": "module",
@@ -37,7 +37,8 @@
     "codex"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "engines": {
     "node": ">=18"

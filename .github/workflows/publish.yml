@@ -1,4 +1,4 @@
-name: Publish to npm
+name: Verify npm release
 
 on:
   release:
@@ -6,10 +6,9 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  publish:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +20,4 @@ jobs:
 
       - run: npm test
 
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: test "$(npm view agent-history version)" = "$(node -p \"require('./package.json').version\")"

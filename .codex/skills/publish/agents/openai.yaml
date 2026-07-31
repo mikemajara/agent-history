@@ -1,0 +1,4 @@
+interface:
+  display_name: "Publish Package"
+  short_description: "Prepare, publish, and verify npm releases"
+  default_prompt: "Use $publish to prepare and release this package to npm."

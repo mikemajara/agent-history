@@ -42,10 +42,11 @@ agent-history resume <id>
 
 ## Releasing
 
-Publishing to npm is automated via GitHub Actions when a GitHub release is published:
+Publish to npm locally after preparing the release:
 
 1. Bump `version` in `package.json` on `main`.
-2. Create a GitHub release for that tag (for example `v0.1.1`).
-3. The `Publish to npm` workflow runs tests and publishes with provenance.
+2. Run `npm test` and `npm pack --dry-run`.
+3. Run `npm publish --otp XXXXXX`.
+4. Create a matching GitHub release for that tag (for example `v0.4.0`); the workflow verifies the published npm version.
 
-Repository maintainers must configure an `NPM_TOKEN` secret with publish access to the `agent-history` package.
+The `/publish` skill performs the release preflight and leaves the OTP-protected publish command to the user.
