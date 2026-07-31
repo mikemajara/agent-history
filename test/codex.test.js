@@ -52,6 +52,37 @@ test("codex preview logic skips wrapper metadata and keeps user prompt", async (
   assert.equal(session?.metadata?.branch, "feat/session-browser");
 });
 
+test("codex preview skips image markers and keeps the accompanying user request", async () => {
+  const targetCwd = "/tmp/codex-images";
+  const sessionsRoot = path.join(tempRoot, ".codex", "sessions", "2026", "07", "30");
+  await fs.mkdir(sessionsRoot, { recursive: true });
+
+  await fs.writeFile(path.join(sessionsRoot, "images.jsonl"), [
+    JSON.stringify({
+      timestamp: "2026-07-30T10:00:00.000Z",
+      type: "session_meta",
+      payload: { id: "images", cwd: targetCwd },
+    }),
+    JSON.stringify({
+      timestamp: "2026-07-30T10:00:01.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "user",
+        content: [
+          { type: "input_text", text: '<image name=[Image #1] path="/tmp/example.png">' },
+          { type: "input_image" },
+          { type: "input_text", text: "</image>" },
+          { type: "input_text", text: "actual user request" },
+        ],
+      },
+    }),
+  ].join("\n"));
+
+  const sessions = await discoverCodexSessions(targetCwd);
+  assert.equal(sessions.find((session) => session.id === "images")?.preview, "actual user request");
+});
+
 test("codex resume command uses codex resume <id>", async () => {
   const targetCwd = "/tmp/codex-project";
   const sessionsRoot = path.join(tempRoot, ".codex", "sessions", "2026", "06", "14");

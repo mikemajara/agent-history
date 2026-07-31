@@ -67,13 +67,13 @@ function findCodexPreview(records) {
       continue;
     }
 
-    for (const item of content) {
-      if (item?.type === "input_text" && typeof item.text === "string") {
-        const preview = compactPreview(item.text);
-        if (preview) {
-          return preview;
-        }
-      }
+    const text = content
+      .filter((item) => item?.type === "input_text" && typeof item.text === "string")
+      .map((item) => item.text)
+      .join(" ");
+    const preview = compactPreview(text);
+    if (preview) {
+      return preview;
     }
   }
 

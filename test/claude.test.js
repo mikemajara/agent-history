@@ -24,6 +24,13 @@ test("claude resume command uses claude --resume <id>", async () => {
       timestamp: "2026-06-14T10:00:01.000Z",
       type: "user",
       cwd: targetCwd,
+      message: { content: "<local-command-caveat>ignore this internal record</local-command-caveat>" },
+    }),
+    JSON.stringify({
+      sessionId,
+      timestamp: "2026-06-14T10:00:01.500Z",
+      type: "user",
+      cwd: targetCwd,
       message: { content: "fix the resume command" },
     }),
     JSON.stringify({
@@ -44,4 +51,5 @@ test("claude resume command uses claude --resume <id>", async () => {
   assert.deepEqual(sessions[0]?.resumeCommand, ["claude", "--resume", sessionId]);
   assert.equal(sessions[0]?.resumeCommand?.join(" "), `claude --resume ${sessionId}`);
   assert.equal(sessions[0]?.metadata?.model, "claude-opus-4");
+  assert.equal(sessions[0]?.preview, "fix the resume command");
 });

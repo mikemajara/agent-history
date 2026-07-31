@@ -1,23 +1,9 @@
 import { readJsonl } from "./jsonl.js";
-import { extractTextFromContent } from "./text.js";
+import { extractTextFromContent, unwrapPromptText } from "./text.js";
+import { extractOpenCodeTurns } from "../providers/opencode.js";
 
 const K1 = 1.5;
 const B = 0.75;
-
-// System preamble patterns to skip when indexing
-const PREAMBLE_RE = /^<(environment_context|permissions instructions|collaboration_mode|apps_instructions|skills_instructions|plugins_instructions|local-command-|command-name)/;
-
-function unwrapTurnText(text) {
-  if (!text?.trim()) return "";
-  const trimmed = text.trim();
-  if (PREAMBLE_RE.test(trimmed)) return "";
-  const m = trimmed.match(/^<user_query>\s*([\s\S]*?)\s*<\/user_query>$/);
-  if (m) return m[1];
-  return trimmed
-    .replace(/<timestamp>[\s\S]*?<\/timestamp>/g, "")
-    .replace(/<user_query>\s*([\s\S]*?)\s*<\/user_query>/g, "$1")
-    .trim();
-}
 
 function extractTurnFromRecord(record, agent) {
   if (agent === "claude") {
@@ -25,7 +11,7 @@ function extractTurnFromRecord(record, agent) {
     if (type !== "user" && type !== "assistant") return null;
     const content = record?.message?.content ?? record?.prompt;
     const raw = typeof content === "string" ? content : extractTextFromContent(content);
-    const text = unwrapTurnText(raw);
+    const text = unwrapPromptText(raw);
     if (!text) return null;
     return { role: type, text };
   }
@@ -35,7 +21,7 @@ function extractTurnFromRecord(record, agent) {
     if (role !== "user" && role !== "assistant") return null;
     const content = record?.payload?.content ?? record?.message?.content;
     const raw = typeof content === "string" ? content : extractTextFromContent(content);
-    const text = unwrapTurnText(raw);
+    const text = unwrapPromptText(raw);
     if (!text) return null;
     return { role, text };
   }
@@ -49,7 +35,7 @@ function extractTurnFromRecord(record, agent) {
     const parts = content
       .map((item) => item?.text ?? item?.input_text ?? item?.output_text ?? "")
       .filter(Boolean);
-    const text = unwrapTurnText(parts.join(" "));
+    const text = unwrapPromptText(parts.join(" "));
     if (!text) return null;
     return { role, text };
   }
@@ -57,16 +43,20 @@ function extractTurnFromRecord(record, agent) {
   return null;
 }
 
-async function extractTurns(filePath, agent) {
+async function extractTurns(session) {
+  if (session.agent === "opencode") {
+    return extractOpenCodeTurns(session);
+  }
+
   let records;
   try {
-    records = await readJsonl(filePath);
+    records = await readJsonl(session.transcriptPath);
   } catch {
     return [];
   }
   const turns = [];
   for (const record of records) {
-    const turn = extractTurnFromRecord(record, agent);
+    const turn = extractTurnFromRecord(record, session.agent);
     if (turn) turns.push(turn);
   }
   return turns;
@@ -83,7 +73,7 @@ export async function buildIndex(sessions) {
 
   for (let i = 0; i < sessions.length; i += BATCH) {
     const batch = sessions.slice(i, i + BATCH);
-    const turns = await Promise.all(batch.map((s) => extractTurns(s.transcriptPath, s.agent)));
+    const turns = await Promise.all(batch.map(extractTurns));
     allTurns.push(...turns);
   }
 

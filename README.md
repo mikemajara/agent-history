@@ -22,7 +22,7 @@ agent-history resume <id>
 
 ## What it does
 
-- Reads local metadata from Cursor, Claude Code, and Codex session files.
+- Reads local metadata from Cursor, Claude Code, Codex, and OpenCode sessions.
 - Browses sessions across all known projects or a single filtered project path.
 - Searches indexed local metadata without shelling out to agent CLIs.
 - Prints a native resume command for the selected session.
@@ -38,7 +38,7 @@ agent-history resume <id>
   compatibility exit key.
 - `Enter` prints the selected session's resume command.
 - Provider fields such as historical branch and model are shown only when the
-  local transcript contains them; discovery reads local files only.
+  local data contains them; discovery reads local data only.
 
 ## Releasing
 

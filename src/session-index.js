@@ -1,27 +1,30 @@
 import { discoverAllClaudeSessions, discoverClaudeSessions } from "./providers/claude.js";
 import { discoverCodexSessions } from "./providers/codex.js";
 import { discoverAllCursorSessions, discoverCursorSessions } from "./providers/cursor.js";
+import { discoverOpenCodeSessions } from "./providers/opencode.js";
 import { encodeClaudeProjectSlug, encodeCursorProjectSlug, resolveTargetCwd } from "./lib/path-utils.js";
 
 export async function getSessionsForCwd(inputCwd) {
   const targetCwd = await resolveTargetCwd(inputCwd);
-  const [cursor, claude, codex] = await Promise.all([
+  const [cursor, claude, codex, opencode] = await Promise.all([
     discoverCursorSessions(targetCwd),
     discoverClaudeSessions(targetCwd),
     discoverCodexSessions(targetCwd),
+    discoverOpenCodeSessions(targetCwd),
   ]);
 
-  return [...cursor, ...claude, ...codex].sort(compareSessionsDesc);
+  return [...cursor, ...claude, ...codex, ...opencode].sort(compareSessionsDesc);
 }
 
 export async function getAllSessions() {
-  const [cursor, claude, codex] = await Promise.all([
+  const [cursor, claude, codex, opencode] = await Promise.all([
     discoverAllCursorSessions(),
     discoverAllClaudeSessions(),
     discoverCodexSessions(),
+    discoverOpenCodeSessions(),
   ]);
 
-  return [...cursor, ...claude, ...codex].sort(compareSessionsDesc);
+  return [...cursor, ...claude, ...codex, ...opencode].sort(compareSessionsDesc);
 }
 
 export function matchesSessionCwd(session, targetCwd) {

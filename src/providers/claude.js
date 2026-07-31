@@ -117,7 +117,10 @@ function findClaudePreview(records) {
 
     const prompt = record?.prompt ?? extractTextFromContent(record?.message?.content) ?? record?.message;
     if (typeof prompt === "string" && prompt.trim()) {
-      return compactPreview(prompt);
+      const preview = compactPreview(prompt);
+      if (preview) {
+        return preview;
+      }
     }
   }
 

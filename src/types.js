@@ -1,6 +1,6 @@
 /**
  * @typedef {Object} AgentSession
- * @property {"cursor"|"claude"|"codex"} agent
+ * @property {"cursor"|"claude"|"codex"|"opencode"} agent
  * @property {string} id
  * @property {Date | undefined} startedAt
  * @property {Date | undefined} updatedAt
