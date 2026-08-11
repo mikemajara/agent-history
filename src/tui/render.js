@@ -1,4 +1,4 @@
-import { formatResumeCommand } from "../format.js";
+import { formatProject, formatResumeCommand } from "../format.js";
 import { clampSelection, getVisibleSessions } from "./state.js";
 
 export function renderBrowserFrame(state, width, height) {
@@ -32,6 +32,7 @@ export function renderBrowserFrame(state, width, height) {
   );
   const visibleWindow = visibleSessions.slice(start, start + listBudget);
   const listLines = [];
+  const { directoryWidth, previewWidth } = compactColumnWidths(width);
 
   for (let windowIndex = 0; windowIndex < visibleWindow.length; windowIndex++) {
     const session = visibleWindow[windowIndex];
@@ -41,7 +42,9 @@ export function renderBrowserFrame(state, width, height) {
     const timestamp = state.sort === "created" ? session.startedAt ?? session.updatedAt : session.updatedAt ?? session.startedAt;
     const age = formatRelativeAge(timestamp, state.now ?? new Date());
     const provider = String(session.agent ?? "-").padEnd(7, " ");
-    const row = `${marker} ${age.padEnd(9, " ")} ${provider} ${truncateRight(normalizePreview(session.preview), Math.max(width - 21, 1))}`;
+    const directory = truncateLeft(formatProject(session), directoryWidth).padEnd(directoryWidth, " ");
+    const preview = truncateRight(normalizePreview(session.preview), previewWidth);
+    const row = `${marker} ${age.padEnd(9, " ")} ${provider} ${directory} ${preview}`;
     const styled = selected ? inverse(row) : index % 2 === 0 ? dim(row) : row;
     listLines.push(styled);
 
@@ -93,7 +96,7 @@ function renderReferenceDetails(session, state, width) {
   addField("Model:", metadata.model);
   addField("Created:", formatDetailTimestamp(session.startedAt));
   addField("Updated:", formatDetailTimestamp(session.updatedAt));
-  addField("Directory:", session.cwd ?? metadata.projectSlug ?? "-");
+  addField("Directory:", formatProject(session));
   addField("Branch:", metadata.branch);
   addField("Resume:", formatResumeCommand(session));
   lines.push("  │ Conversation:");
@@ -139,6 +142,15 @@ function wrapReferenceText(value, width) {
   }
   if (line) lines.push(line);
   return lines;
+}
+
+function compactColumnWidths(width) {
+  // Compact row: marker(1) + sp + age(9) + sp + agent(7) + sp = 20, then directory + sp + preview.
+  // Cap directory so short paths don't leave a huge padded gap before preview.
+  const prefixWidth = 20;
+  const directoryWidth = width >= 120 ? 36 : width >= 100 ? 32 : width >= 80 ? 24 : 16;
+  const previewWidth = Math.max(1, width - prefixWidth - directoryWidth - 1);
+  return { directoryWidth, previewWidth };
 }
 
 function normalizePreview(preview) {
@@ -191,6 +203,17 @@ function colorize(code, text) {
 function truncateRight(value, width) {
   const text = String(value ?? "");
   return text.length > width ? `${text.slice(0, Math.max(width - 3, 0))}...` : text;
+}
+
+function truncateLeft(value, width) {
+  const text = String(value ?? "");
+  if (text.length <= width) {
+    return text;
+  }
+  if (width <= 3) {
+    return text.slice(-width);
+  }
+  return `...${text.slice(-(width - 3))}`;
 }
 
 function formatFrameLine(value, width) {

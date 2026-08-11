@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { expandHomePath, encodeClaudeProjectSlug } from "../lib/path-utils.js";
+import { expandHomePath, encodeClaudeProjectSlug, resolveEncodedProjectSlug } from "../lib/path-utils.js";
 import { pathExists } from "../lib/fs-walk.js";
 import { readJsonl } from "../lib/jsonl.js";
 import { parseDate } from "../lib/time.js";
@@ -44,7 +44,10 @@ export async function discoverAllClaudeSessions() {
 
     const projectRoot = path.join(CLAUDE_PROJECTS_ROOT, entry.name);
     const files = (await readProjectDir(projectRoot)).filter((filePath) => filePath.endsWith(".jsonl"));
-    const parsed = await Promise.all(files.map((filePath) => parseClaudeSession(filePath, undefined, historyIndex, entry.name)));
+    const resolvedCwd = await resolveEncodedProjectSlug(entry.name);
+    const parsed = await Promise.all(
+      files.map((filePath) => parseClaudeSession(filePath, resolvedCwd, historyIndex, entry.name)),
+    );
     sessions.push(...parsed.filter(Boolean));
   }
 

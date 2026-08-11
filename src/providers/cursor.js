@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { expandHomePath, encodeCursorProjectSlug } from "../lib/path-utils.js";
+import { expandHomePath, encodeCursorProjectSlug, resolveEncodedProjectSlug } from "../lib/path-utils.js";
 import { listFilesRecursive, pathExists } from "../lib/fs-walk.js";
 import { readJsonl } from "../lib/jsonl.js";
 import { parseDate } from "../lib/time.js";
@@ -40,8 +40,11 @@ export async function discoverAllCursorSessions() {
       continue;
     }
 
+    const resolvedCwd = await resolveEncodedProjectSlug(entry.name, { stripLeadingDots: true });
     const files = await listFilesRecursive(transcriptRoot, (filePath) => filePath.endsWith(".jsonl"));
-    const parsed = await Promise.all(files.map((filePath) => parseCursorSession(filePath, undefined, entry.name)));
+    const parsed = await Promise.all(
+      files.map((filePath) => parseCursorSession(filePath, resolvedCwd, entry.name)),
+    );
     sessions.push(...parsed.filter(Boolean));
   }
 

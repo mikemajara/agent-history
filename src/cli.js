@@ -29,7 +29,9 @@ Interactive controls:
   tab focus filter/sort       left/right change Cwd/All or Updated/Created
   up/down or j/k browse       type to search, / search, Ctrl+e details
   Enter resume                Ctrl+n new in directory
-  Esc exit/clear              Ctrl+C exit`;
+  Esc exit/clear              Ctrl+C exit
+
+Compact rows show: age · agent · directory · preview`;
 
 export async function main(argv, io, options = {}) {
   const [command, arg] = argv;
