@@ -64,12 +64,15 @@ test("interactive browser removes resize and key listeners on Ctrl+C", async () 
 
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(process.listenerCount("SIGWINCH"), before + 1);
+  assert.match(output.join(""), /\x1b\[\?1049h/);
+  assert.doesNotMatch(output.join(""), /\x1b\[2J/);
   stdin.emit("keypress", "", { ctrl: true, name: "c" });
 
   assert.equal(await result, 130);
   assert.equal(process.listenerCount("SIGWINCH"), before);
   assert.equal(stdin.rawMode, false);
-  assert.match(output.at(-1), /\x1b\[\?25h/);
+  assert.match(output.join(""), /\x1b\[\?25h\x1b\[\?1049l/);
+  assert.equal(output.at(-1), "\n");
 });
 
 test("Enter in search mode launches the selected session", async () => {

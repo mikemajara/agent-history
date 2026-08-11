@@ -38,10 +38,12 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
     }
     io.stdin.setRawMode(false);
     io.stdin.pause();
-    io.stdout.write("\x1b[2J\x1b[H\x1b[?25h");
+    // Leave the alternate screen so the prior scrollback/prompt is restored.
+    io.stdout.write("\x1b[?25h\x1b[?1049l");
   };
 
-  io.stdout.write("\x1b[?25l\x1b[2J\x1b[H");
+  // Draw on the alternate screen so quitting restores the user's prior terminal.
+  io.stdout.write("\x1b[?1049h\x1b[?25l\x1b[H");
 
   const render = () => {
     const width = Math.max(io.stdout.columns ?? 100, 60);
@@ -66,8 +68,8 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
       const action = handleBrowserInput(state, str, key);
 
       if (action === "exit-interrupted") {
-        io.stdout.write("\n");
         cleanup();
+        io.stdout.write("\n");
         resolve(130);
         return;
       }

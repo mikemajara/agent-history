@@ -48,7 +48,8 @@ agent-history resume <id>
   Cwd/All or Updated/Created.
 - `Ctrl+e` toggles a details panel for the selected session.
 - `Esc` exits (or clears the active detail/search state); `q` remains a
-  compatibility exit key.
+  compatibility exit key. The browser uses the terminal alternate screen, so
+  quitting restores your prior scrollback instead of wiping it.
 - `Enter` resumes the selected session; `Ctrl+n` starts a new session with
   that agent in the session's directory.
 - Provider fields such as historical branch and model are shown only when the
