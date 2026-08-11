@@ -1,6 +1,14 @@
 import { formatProject, formatResumeCommand } from "../format.js";
 import { clampSelection, getVisibleSessions } from "./state.js";
 
+/** Terminals at or above this width use a side preview; narrower ones stack it. */
+export const PREVIEW_SIDE_MIN_WIDTH = 116;
+
+const PROMPT_WORD_LIMIT = 6;
+const AGE_WIDTH = 9;
+const AGENT_WIDTH = 7;
+const TURNS_WIDTH = 5;
+
 export function renderBrowserFrame(state, width, height) {
   const visibleSessions = getVisibleSessions(state);
   clampSelection(state, visibleSessions);
@@ -20,41 +28,87 @@ export function renderBrowserFrame(state, width, height) {
   headerLines.push("");
 
   const selectedSession = visibleSessions[state.selectedIndex];
-  const fullDetailLines = state.expanded && selectedSession
-    ? renderReferenceDetails(selectedSession, state, width)
-    : [];
-  const detailBudget = Math.max(height - footerRows - headerLines.length - 1, 0);
-  const detailLines = clipReferenceDetails(fullDetailLines, detailBudget, width);
-  const listBudget = Math.max(height - footerRows - headerLines.length - detailLines.length, 1);
+  const previewOn = state.previewPane !== false;
+  const sidePreview = previewOn && width >= PREVIEW_SIDE_MIN_WIDTH;
+  const bodyBudget = Math.max(height - footerRows - headerLines.length, 1);
+
+  let listWidth = width;
+  let previewWidth = 0;
+  let listBudget = bodyBudget;
+  let previewBudget = 0;
+
+  if (previewOn && sidePreview) {
+    listWidth = Math.max(40, Math.floor(width * 0.62));
+    previewWidth = Math.max(20, width - listWidth - 1);
+    listBudget = bodyBudget;
+    previewBudget = bodyBudget;
+  } else if (previewOn) {
+    // Prefer enough stacked preview room for metadata + several conversation
+    // turns, while keeping a column header and at least one session row.
+    const desiredPreview = Math.min(18, Math.max(10, Math.floor(bodyBudget * 0.65)));
+    listBudget = Math.max(2, bodyBudget - desiredPreview - 1);
+    previewBudget = Math.max(1, bodyBudget - listBudget - 1);
+    previewWidth = width;
+  }
+
+  const layout = listColumnLayout(listWidth);
+  const columnHeader = formatFrameLine(renderColumnHeader(layout), listWidth);
+  const rowBudget = Math.max(1, listBudget - 1);
   const start = Math.max(
     0,
-    Math.min(state.selectedIndex - Math.floor(listBudget / 2), visibleSessions.length - listBudget),
+    Math.min(state.selectedIndex - Math.floor(rowBudget / 2), visibleSessions.length - rowBudget),
   );
-  const visibleWindow = visibleSessions.slice(start, start + listBudget);
-  const listLines = [];
-  const { directoryWidth, previewWidth } = compactColumnWidths(width);
+  const visibleWindow = visibleSessions.slice(start, start + rowBudget);
+  const listLines = [columnHeader];
 
   for (let windowIndex = 0; windowIndex < visibleWindow.length; windowIndex++) {
     const session = visibleWindow[windowIndex];
     const index = start + windowIndex;
     const selected = index === state.selectedIndex;
-    const marker = selected ? (state.expanded ? "⌄" : "›") : " ";
-    const timestamp = state.sort === "created" ? session.startedAt ?? session.updatedAt : session.updatedAt ?? session.startedAt;
-    const age = formatRelativeAge(timestamp, state.now ?? new Date());
-    const provider = String(session.agent ?? "-").padEnd(7, " ");
-    const directory = truncateLeft(formatProject(session), directoryWidth).padEnd(directoryWidth, " ");
-    const preview = truncateRight(normalizePreview(session.preview), previewWidth);
-    const row = `${marker} ${age.padEnd(9, " ")} ${provider} ${directory} ${preview}`;
+    const row = renderSessionRow(session, state, layout, selected);
     const styled = selected ? inverse(row) : index % 2 === 0 ? dim(row) : row;
-    listLines.push(styled);
-
-    if (selected && detailLines.length > 0) {
-      listLines.push(...detailLines);
-    }
+    listLines.push(formatFrameLine(styled, listWidth));
   }
 
   if (visibleSessions.length === 0) {
-    listLines.push("No matching sessions.");
+    listLines.push(formatFrameLine("No matching sessions.", listWidth));
+  }
+
+  while (listLines.length < listBudget) {
+    listLines.push(formatFrameLine("", listWidth));
+  }
+
+  const bodyLines = [];
+  if (previewOn && selectedSession) {
+    const detailLines = renderReferenceDetails(selectedSession, state, previewWidth, previewBudget);
+    while (detailLines.length < previewBudget) {
+      detailLines.push(formatFrameLine("", previewWidth));
+    }
+
+    if (sidePreview) {
+      for (let i = 0; i < listBudget; i++) {
+        const left = listLines[i] ?? formatFrameLine("", listWidth);
+        const right = detailLines[i] ?? formatFrameLine("", previewWidth);
+        bodyLines.push(`${left}│${right}`);
+      }
+    } else {
+      bodyLines.push(...listLines.slice(0, listBudget));
+      bodyLines.push(formatFrameLine("─".repeat(width), width));
+      bodyLines.push(...detailLines.slice(0, previewBudget));
+    }
+  } else if (previewOn) {
+    const emptyPreview = Array.from({ length: previewBudget }, () => formatFrameLine("", previewWidth));
+    if (sidePreview) {
+      for (let i = 0; i < listBudget; i++) {
+        bodyLines.push(`${listLines[i] ?? formatFrameLine("", listWidth)}│${emptyPreview[i] ?? formatFrameLine("", previewWidth)}`);
+      }
+    } else {
+      bodyLines.push(...listLines.slice(0, listBudget));
+      bodyLines.push(formatFrameLine("─".repeat(width), width));
+      bodyLines.push(...emptyPreview);
+    }
+  } else {
+    bodyLines.push(...listLines.slice(0, listBudget));
   }
 
   const status = `${visibleSessions.length === 0 ? 0 : state.selectedIndex + 1} / ${visibleSessions.length} · ${scrollPercent(state.selectedIndex, visibleSessions.length)}%`;
@@ -63,13 +117,94 @@ export function renderBrowserFrame(state, width, height) {
     narrow
       ? "enter resume   ctrl+n new   esc exit   tab focus   ←/→ option"
       : "enter resume   ctrl+n new   esc exit   ctrl+c exit   tab focus filter/sort   ←/→ change option",
-    alignFooter("ctrl+e expand   ↑/↓ browse", status, width),
+    alignFooter("ctrl+p preview   ↑/↓ browse", status, width),
   ];
 
-  return [...headerLines, ...listLines, ...footer]
+  return [...headerLines, ...bodyLines, ...footer]
     .slice(0, height)
     .map((line) => formatFrameLine(line, width))
     .join("\n");
+}
+
+/**
+ * Broader → specific: Age · Agent · Directory · Prompt · Turns
+ *
+ * @param {number} width
+ * @returns {{
+ *   age: number,
+ *   agent: number,
+ *   prompt: number,
+ *   turns: number,
+ *   directory: number,
+ *   showDirectory: boolean,
+ *   columns: { age: number, agent: number, prompt: number, turns: number, directory: number }
+ * }}
+ */
+export function listColumnLayout(width) {
+  const showDirectory = width >= 80;
+  // marker(1) + sp + age + sp + agent + sp = 20; trailing turns (+ leading sp) = 6
+  const prefixWidth = 1 + 1 + AGE_WIDTH + 1 + AGENT_WIDTH + 1;
+  const turnsTail = 1 + TURNS_WIDTH;
+  const flex = Math.max(8, width - prefixWidth - turnsTail);
+
+  let directoryWidth = 0;
+  let promptWidth = flex;
+  if (showDirectory) {
+    // Directory and prompt share the flex band roughly evenly; directory is as
+    // important as the prompt snippet for scanning.
+    directoryWidth = Math.max(16, Math.floor(flex * 0.5));
+    promptWidth = Math.max(8, flex - 1 - directoryWidth);
+  }
+
+  const directoryStart = prefixWidth;
+  const promptStart = showDirectory ? directoryStart + directoryWidth + 1 : prefixWidth;
+  const turnsStart = promptStart + promptWidth + 1;
+  const columns = {
+    age: 2,
+    agent: 2 + AGE_WIDTH + 1,
+    directory: showDirectory ? directoryStart : -1,
+    prompt: promptStart,
+    turns: turnsStart,
+  };
+
+  return {
+    age: AGE_WIDTH,
+    agent: AGENT_WIDTH,
+    prompt: promptWidth,
+    turns: TURNS_WIDTH,
+    directory: directoryWidth,
+    showDirectory,
+    columns,
+  };
+}
+
+function renderColumnHeader(layout) {
+  const parts = [
+    " ",
+    "AGE".padEnd(layout.age, " "),
+    "AGENT".padEnd(layout.agent, " "),
+  ];
+  if (layout.showDirectory) {
+    parts.push("DIRECTORY".padEnd(layout.directory, " ").slice(0, layout.directory));
+  }
+  parts.push("PROMPT".padEnd(layout.prompt, " "));
+  parts.push("TURNS".padStart(layout.turns, " "));
+  return dim(parts.join(" "));
+}
+
+function renderSessionRow(session, state, layout, selected) {
+  const marker = selected ? "›" : " ";
+  const timestamp = state.sort === "created" ? session.startedAt ?? session.updatedAt : session.updatedAt ?? session.startedAt;
+  const age = formatRelativeAge(timestamp, state.now ?? new Date()).padEnd(layout.age, " ");
+  const agent = String(session.agent ?? "-").padEnd(layout.agent, " ");
+  const prompt = truncateRight(promptSnippet(session.preview), layout.prompt).padEnd(layout.prompt, " ");
+  const turns = formatTurnCount(countUserTurns(state, session)).padStart(layout.turns, " ");
+  const parts = [marker, age, agent];
+  if (layout.showDirectory) {
+    parts.push(truncateLeft(formatProject(session), layout.directory).padEnd(layout.directory, " "));
+  }
+  parts.push(prompt, turns);
+  return parts.join(" ");
 }
 
 function renderControls(state) {
@@ -83,12 +218,15 @@ function alignSearchAndControls(searchText, controls, width) {
   return `${left}${" ".repeat(Math.max(width - left.length - controls.length, 1))}${controls}`;
 }
 
-function renderReferenceDetails(session, state, width) {
+function renderReferenceDetails(session, state, width, budget = Infinity) {
   const metadata = session.metadata ?? {};
   const lines = [];
   const addField = (label, value) => {
     if (value == null || value === "") return;
-    lines.push(`  │ ${label.padEnd(12, " ")} ${truncateRight(String(value), Math.max(width - 17, 1))}`);
+    lines.push(formatFrameLine(
+      ` ${label.padEnd(12, " ")} ${truncateRight(String(value), Math.max(width - 15, 1))}`,
+      width,
+    ));
   };
 
   addField("Session:", session.id);
@@ -98,21 +236,44 @@ function renderReferenceDetails(session, state, width) {
   addField("Updated:", formatDetailTimestamp(session.updatedAt));
   addField("Directory:", formatProject(session));
   addField("Branch:", metadata.branch);
+  addField("Turns:", formatTurnCount(countUserTurns(state, session)));
   addField("Resume:", formatResumeCommand(session));
-  lines.push("  │ Conversation:");
+
+  if (state.noPreview) {
+    return lines.slice(0, Number.isFinite(budget) ? budget : undefined);
+  }
+
+  if (Number.isFinite(budget) && lines.length >= budget) {
+    return clipReferenceDetails(lines, budget, width);
+  }
+
+  lines.push(formatFrameLine(" Conversation:", width));
 
   const turns = state.searchIndex?.docs?.[state.sessions.indexOf(session)]?.turns ?? [];
   const userIndex = turns.findIndex((turn) => turn.role === "user");
-  const excerpt = userIndex >= 0 ? turns.slice(userIndex, userIndex + 2) : [];
+  const excerpt = userIndex >= 0
+    ? turns.slice(userIndex)
+    : turns.filter((turn) => turn.role === "user" || turn.role === "assistant");
   if (excerpt.length === 0 && session.preview) {
     excerpt.push({ role: "user", text: session.preview });
   }
 
+  let truncated = false;
   for (const turn of excerpt) {
     const role = turn.role === "assistant" ? "ai:  " : "you: ";
-    for (const line of wrapReferenceText(`${role}${turn.text}`, Math.max(width - 7, 1))) {
-      lines.push(`  │ ${line}`);
+    const wrapped = wrapReferenceText(`${role}${turn.text}`, Math.max(width - 2, 1));
+    for (const line of wrapped) {
+      if (Number.isFinite(budget) && lines.length >= budget) {
+        truncated = true;
+        break;
+      }
+      lines.push(formatFrameLine(` ${line}`, width));
     }
+    if (truncated) break;
+  }
+
+  if (truncated && lines.length > 0) {
+    lines[lines.length - 1] = formatFrameLine(` ${truncateRight("...", Math.max(width - 2, 1))}`, width);
   }
 
   return lines;
@@ -122,7 +283,7 @@ function clipReferenceDetails(lines, budget, width) {
   if (lines.length <= budget) return lines;
   if (budget <= 0) return [];
   const clipped = lines.slice(0, budget);
-  clipped[budget - 1] = `  │ ${truncateRight("...", Math.max(width - 4, 1))}`;
+  clipped[budget - 1] = formatFrameLine(` ${truncateRight("...", Math.max(width - 2, 1))}`, width);
   return clipped;
 }
 
@@ -144,17 +305,24 @@ function wrapReferenceText(value, width) {
   return lines;
 }
 
-function compactColumnWidths(width) {
-  // Compact row: marker(1) + sp + age(9) + sp + agent(7) + sp = 20, then directory + sp + preview.
-  // Cap directory so short paths don't leave a huge padded gap before preview.
-  const prefixWidth = 20;
-  const directoryWidth = width >= 120 ? 36 : width >= 100 ? 32 : width >= 80 ? 24 : 16;
-  const previewWidth = Math.max(1, width - prefixWidth - directoryWidth - 1);
-  return { directoryWidth, previewWidth };
+export function promptSnippet(preview, maxWords = PROMPT_WORD_LIMIT) {
+  const normalized = String(preview ?? "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "-";
+  return normalized.split(" ").filter(Boolean).slice(0, maxWords).join(" ");
 }
 
-function normalizePreview(preview) {
-  return String(preview ?? "-").replace(/\s+/g, " ").trim() || "-";
+export function countUserTurns(state, session) {
+  if (!state.searchIndex?.docs) return undefined;
+  const index = state.sessions.indexOf(session);
+  if (index < 0) return undefined;
+  const turns = state.searchIndex.docs[index]?.turns;
+  if (!Array.isArray(turns)) return undefined;
+  return turns.filter((turn) => turn.role === "user").length;
+}
+
+function formatTurnCount(count) {
+  if (count == null) return "-";
+  return String(count);
 }
 
 function formatRelativeAge(value, now) {

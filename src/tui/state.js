@@ -11,7 +11,8 @@ export function createBrowserState(sessions, options = {}) {
     focusedControl: "filter",
     selectedIndex: 0,
     selectedId: sessions[0]?.id,
-    expanded: false,
+    previewPane: true,
+    noPreview: false,
     mode: "normal",
     search: "",
     message: "",
@@ -98,11 +99,6 @@ function handleNormalInput(state, str, key, visibleSessions) {
   }
 
   if (key?.name === "escape") {
-    if (state.expanded) {
-      state.expanded = false;
-      return "render";
-    }
-
     if (state.search) {
       clearSearch(state);
       return "render";
@@ -121,8 +117,8 @@ function handleNormalInput(state, str, key, visibleSessions) {
     return "render";
   }
 
-  if (key?.ctrl && key.name === "e") {
-    state.expanded = !state.expanded;
+  if (key?.ctrl && key.name === "p") {
+    state.previewPane = !state.previewPane;
     return "render";
   }
 
@@ -158,7 +154,7 @@ function handleNormalInput(state, str, key, visibleSessions) {
 
   if (str === "?") {
     state.message =
-      "Controls: j/k/arrows navigate, Ctrl+e details panel, Enter resume, Ctrl+n new in directory, / search, Esc clear+leave search, Ctrl+u clear, q quit | Rows: age · agent · directory · preview | Search matches all conversation text";
+      "Controls: j/k/arrows navigate, Ctrl+p toggle preview pane, Enter resume, Ctrl+n new in directory, / search, Esc clear+leave search, Ctrl+u clear, q quit | Rows: age · agent · directory · prompt · turns | Search matches all conversation text";
     return "render";
   }
 
@@ -196,6 +192,11 @@ function handleSearchInput(state, str, key, visibleSessions) {
   if (key?.ctrl && key.name === "n") {
     clampSelection(state, getVisibleSessions(state));
     return "select-new";
+  }
+
+  if (key?.ctrl && key.name === "p") {
+    state.previewPane = !state.previewPane;
+    return "render";
   }
 
   if (key?.name === "tab") {

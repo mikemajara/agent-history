@@ -46,19 +46,20 @@ Expected controls:
 - `j` / `k` and arrow keys move selection.
 - `Enter` resumes the selected session.
 - `Ctrl+n` starts a new session with that agent in the session's directory.
-- `Ctrl+e` expands extended metadata for the selected session.
+- `Ctrl+p` toggles the always-on preview pane (on by default; side split when wide, stacked when narrow).
 - `/` searches across indexed local metadata.
 - `q` exits.
 - `?` shows help.
 
-Rows should show at least:
+Rows should show a headed table (broader → specific):
 
+- relative age
 - agent name
-- local date/time
-- short session id
-- preview of the first or most relevant prompt
+- directory/project when width allows
+- first few words of the first user prompt
+- user-prompt turn count
 
-Expanded metadata should show:
+The preview pane should show:
 
 - full session id
 - agent/provider

@@ -27,11 +27,12 @@ Options:
 
 Interactive controls:
   tab focus filter/sort       left/right change Cwd/All or Updated/Created
-  up/down or j/k browse       type to search, / search, Ctrl+e details
+  up/down or j/k browse       type to search, / search, Ctrl+p preview
   Enter resume                Ctrl+n new in directory
   Esc exit/clear              Ctrl+C exit
 
-Compact rows show: age · agent · directory · preview`;
+Compact rows show: age · agent · directory · prompt · turns
+Preview pane (on by default): side split on wide terminals, stacked when narrow`;
 
 export async function main(argv, io, options = {}) {
   const [command, arg] = argv;

@@ -46,9 +46,12 @@ agent-history resume <id>
   sessions, so the All filter remains immediately available.
 - Type to search, use Tab to focus Filter/Sort, and use Left/Right to change
   Cwd/All or Updated/Created.
-- Compact rows show relative age, agent, directory/project, and prompt preview.
-- `Ctrl+e` toggles a details panel for the selected session.
-- `Esc` exits (or clears the active detail/search state); `q` remains a
+- Compact rows are a headed table, broader → specific: age, agent, directory,
+  first-prompt snippet, user-turn count (directory drops on very narrow terminals).
+- An always-on preview pane shows full session metadata and conversation beside
+  the list on wide terminals (≥116 cols) or stacked under it on narrower ones.
+  `Ctrl+p` toggles the pane.
+- `Esc` exits (or clears the active search state); `q` remains a
   compatibility exit key. The browser uses the terminal alternate screen, so
   quitting restores your prior scrollback instead of wiping it.
 - `Enter` resumes the selected session; `Ctrl+n` starts a new session with

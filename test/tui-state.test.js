@@ -33,13 +33,24 @@ test("j and k navigate in normal mode", () => {
   assert.equal(state.selectedIndex, 0);
 });
 
-test("ctrl+e toggles the selected session details panel", () => {
+test("preview pane starts on and ctrl+p toggles it without losing selection", () => {
   const state = createBrowserState(sessions);
+  state.scope = "all";
+  state.sort = "created";
+  state.search = "terminal";
+  state.selectedIndex = 1;
+  state.selectedId = "def456";
 
-  assert.equal(handleBrowserInput(state, undefined, { name: "e", ctrl: true }), "render");
-  assert.equal(state.expanded, true);
-  assert.equal(handleBrowserInput(state, undefined, { name: "e", ctrl: true }), "render");
-  assert.equal(state.expanded, false);
+  assert.equal(state.previewPane, true);
+  assert.equal(handleBrowserInput(state, undefined, { name: "p", ctrl: true }), "render");
+  assert.equal(state.previewPane, false);
+  assert.equal(state.scope, "all");
+  assert.equal(state.sort, "created");
+  assert.equal(state.search, "terminal");
+  assert.equal(state.selectedId, "def456");
+  assert.equal(handleBrowserInput(state, undefined, { name: "p", ctrl: true }), "render");
+  assert.equal(state.previewPane, true);
+  assert.equal(state.selectedId, "def456");
 });
 
 test("search mode treats q as text instead of quit", () => {
