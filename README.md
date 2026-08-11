@@ -5,19 +5,30 @@
 ## Install
 
 ```bash
+npm i -g agent-history@latest
+```
+
+That installs both `agent-history` and the short alias `ah`.
+
+```bash
 npx agent-history
 ```
 
 ## Usage
 
 ```bash
+ah
+ah --last
 agent-history
 agent-history ~/github/example
+agent-history --last
 agent-history ls
 agent-history ls .
 agent-history show <id>
 agent-history resume <id>
 ```
+
+`ah --last` (or `agent-history --last`) launches the most recently updated session for the current directory.
 
 ## What it does
 
