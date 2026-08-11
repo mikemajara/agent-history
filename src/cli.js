@@ -10,7 +10,7 @@ const HELP_TEXT = `agent-history ${version}
 Find and resume AI agent sessions for the current repo or directory.
 
 Usage:
-  agent-history [path]        Interactive session browser (all projects, or filtered by path)
+  agent-history [path]        Interactive session browser (current directory by default)
   agent-history ls [path]     Scriptable table of sessions
   agent-history show <id>     Detailed metadata for a session
   agent-history resume <id>   Print the resume command for a session
@@ -41,7 +41,6 @@ export async function main(argv, io) {
     const sessions = await getAllSessions();
     const exitCode = await runInteractiveBrowser(sessions, io, {
       currentCwd: await resolveTargetCwd(),
-      initialScope: "all",
     });
     process.exitCode = exitCode;
     return;
@@ -82,7 +81,6 @@ export async function main(argv, io) {
   const sessions = await getAllSessions();
   const exitCode = await runInteractiveBrowser(sessions, io, {
     currentCwd: await resolveTargetCwd(command),
-    initialScope: "cwd",
   });
   process.exitCode = exitCode;
 }

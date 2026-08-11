@@ -6,7 +6,7 @@ export function createBrowserState(sessions, options = {}) {
   return {
     sessions,
     currentCwd: options.currentCwd,
-    scope: options.initialScope ?? "all",
+    scope: options.initialScope ?? (options.currentCwd ? "cwd" : "all"),
     sort: "updated",
     focusedControl: "filter",
     selectedIndex: 0,
@@ -154,7 +154,7 @@ function handleNormalInput(state, str, key, visibleSessions) {
 
   if (str === "?") {
     state.message =
-      "Controls: j/k/arrows navigate, Ctrl+e details panel, Enter print resume, / search, Esc clear+leave search, Ctrl+u clear, q quit | Search matches all conversation text";
+      "Controls: j/k/arrows navigate, Ctrl+e details panel, Enter resume, / search, Esc clear+leave search, Ctrl+u clear, q quit | Search matches all conversation text";
     return "render";
   }
 
@@ -185,10 +185,8 @@ function handleSearchInput(state, str, key, visibleSessions) {
   }
 
   if (key?.name === "return") {
-    state.mode = "normal";
-    state.message = "";
     clampSelection(state, getVisibleSessions(state));
-    return "render";
+    return "select";
   }
 
   if (key?.name === "tab") {

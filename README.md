@@ -12,7 +12,6 @@ npx agent-history
 
 ```bash
 agent-history
-agent-history .
 agent-history ~/github/example
 agent-history ls
 agent-history ls .
@@ -25,18 +24,18 @@ agent-history resume <id>
 - Reads local metadata from Cursor, Claude Code, Codex, and OpenCode sessions.
 - Browses sessions across all known projects or a single filtered project path.
 - Searches indexed local metadata without shelling out to agent CLIs.
-- Prints a native resume command for the selected session.
+- Launches the selected session in its original working directory.
 
 ## Notes
 
-- The no-argument browser preloads all sessions; passing a path starts with the
-  Cwd filter over that same collection.
+- The browser starts filtered to the current directory while preloading all
+  sessions, so the All filter remains immediately available.
 - Type to search, use Tab to focus Filter/Sort, and use Left/Right to change
   Cwd/All or Updated/Created.
 - `Ctrl+e` toggles a details panel for the selected session.
 - `Esc` exits (or clears the active detail/search state); `q` remains a
   compatibility exit key.
-- `Enter` prints the selected session's resume command.
+- `Enter` resumes the selected session directly.
 - Provider fields such as historical branch and model are shown only when the
   local data contains them; discovery reads local data only.
 

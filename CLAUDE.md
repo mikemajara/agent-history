@@ -12,10 +12,9 @@ The default command should be:
 agent-history
 ```
 
-It should open an interactive session browser across all known local projects. Users can pass a path to narrow the browser to a single project:
+It should open an interactive session browser filtered to the current directory. Users can pass a path to browse a different project:
 
 ```bash
-agent-history .
 agent-history ~/github/example
 ```
 
@@ -40,7 +39,7 @@ Initial providers:
 
 ## Interactive UX Goals
 
-The no-argument command should show sessions across all known local projects in a navigable terminal UI. Passing a path should filter to that project.
+The no-argument command should start filtered to the current directory in a navigable terminal UI. All known local sessions remain preloaded so users can switch to the All filter, and passing a path should filter to that project.
 
 Expected controls:
 

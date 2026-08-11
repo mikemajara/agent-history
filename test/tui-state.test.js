@@ -64,14 +64,16 @@ test("search filters live and backspace edits query", () => {
   assert.equal(state.search, "b");
 });
 
-test("enter leaves search mode and keeps query", () => {
+test("enter selects the highlighted session from search mode", () => {
   const state = createBrowserState(sessions);
   handleBrowserInput(state, "/", {});
-  handleBrowserInput(state, "b", {});
+  for (const character of "terminal") {
+    handleBrowserInput(state, character, {});
+  }
 
-  assert.equal(handleBrowserInput(state, "\r", { name: "return" }), "render");
-  assert.equal(state.mode, "normal");
-  assert.equal(state.search, "b");
+  assert.equal(handleBrowserInput(state, "\r", { name: "return" }), "select");
+  assert.equal(state.selectedId, "def456");
+  assert.equal(state.search, "terminal");
 });
 
 test("escape clears query and exits search mode", () => {
@@ -84,12 +86,12 @@ test("escape clears query and exits search mode", () => {
   assert.equal(state.search, "");
 });
 
-test("scope and sort controls operate over the preloaded session collection", () => {
+test("current directory is the default scope and controls operate over all sessions", () => {
   const datedSessions = [
     { agent: "codex", id: "old", cwd: "/tmp/project", startedAt: new Date("2026-01-05"), updatedAt: new Date("2026-01-03") },
     { agent: "cursor", id: "new", cwd: "/tmp/other", startedAt: new Date("2026-01-04"), updatedAt: new Date("2026-01-05") },
   ];
-  const state = createBrowserState(datedSessions, { currentCwd: "/tmp/project", initialScope: "cwd" });
+  const state = createBrowserState(datedSessions, { currentCwd: "/tmp/project" });
 
   assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["old"]);
   assert.equal(handleBrowserInput(state, undefined, { name: "right" }), "render");

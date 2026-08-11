@@ -1,5 +1,5 @@
 import readline from "node:readline";
-import { formatResumeCommand } from "./format.js";
+import { spawn } from "node:child_process";
 import { clampSelection, createBrowserState, getVisibleSessions, handleBrowserInput, setSearchIndex } from "./tui/state.js";
 import { renderBrowserFrame } from "./tui/render.js";
 import { buildIndex } from "./lib/search.js";
@@ -16,6 +16,7 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
   }
 
   const state = createBrowserState(sessions, options);
+  const launch = options.launchSession ?? launchSession;
   state.indexing = true;
 
   readline.emitKeypressEvents(io.stdin);
@@ -81,8 +82,10 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
         const selected = visibleSessions[state.selectedIndex];
         if (selected?.resumeCommand) {
           cleanup();
-          io.stdout.write(`${formatResumeCommand(selected)}\n`);
-          resolve(0);
+          launch(selected, io).then(resolve, (error) => {
+            io.stderr.write(`Failed to resume session: ${error.message}\n`);
+            resolve(1);
+          });
         }
         return;
       }
@@ -93,6 +96,23 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
     };
 
     io.stdin.on("keypress", onKeypress);
+  });
+}
+
+export function launchSession(session, io) {
+  const [command, ...args] = session.resumeCommand;
+
+  return new Promise((resolve) => {
+    const child = spawn(command, args, {
+      cwd: session.cwd,
+      stdio: "inherit",
+    });
+
+    child.once("error", (error) => {
+      io.stderr.write(`Failed to launch ${command}: ${error.message}\n`);
+      resolve(1);
+    });
+    child.once("exit", (code) => resolve(code ?? 1));
   });
 }
 
