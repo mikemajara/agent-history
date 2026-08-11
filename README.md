@@ -1,71 +1,60 @@
 # agent-history
 
-`agent-history` is a terminal CLI for finding and resuming AI agent sessions across local projects.
-
-## Install
+Find and resume local AI agent sessions from your terminal — Cursor, Claude Code, Codex, and OpenCode.
 
 ```bash
 npm i -g agent-history@latest
+# also installs the short alias: ah
+
+npx agent-history@latest
 ```
 
-That installs both `agent-history` and the short alias `ah`.
+## Why
+
+You already have dozens of agent chats on disk. `ah` browses them for the current project, previews what you were doing, and resumes the one you want.
+
+### New window, same agent — fresh chat
+
+Some tools auto-resume the last session when you open a project. That is fine until it is not: you open Zed (or another editor), it launches into yesterday's chat, and you have to kill it and start OpenCode / Claude / Codex by hand just to get a clean thread.
+
+Wire this instead:
 
 ```bash
-npx agent-history
+ah --last --new
 ```
 
-## Usage
+It picks the agent you last used in this directory and starts a **new** session there — same tool, no old transcript. Keep `ah --last` when you do want to continue.
+
+## Quick start
 
 ```bash
-ah
-ah --last
-agent-history
-agent-history ~/github/example
-agent-history --last
-agent-history --last --new
-agent-history ls
-agent-history ls .
-agent-history show <id>
-agent-history resume <id>
+ah                          # interactive browser for this directory
+ah ~/github/example         # browse another project
+ah --last                   # resume the newest session here
+ah --last --new             # same agent, fresh session
+ah ls                       # scriptable table
+ah show <id>                # details
+ah resume <id>              # print the resume command
 ```
 
-`ah --last` (or `agent-history --last`) launches the most recently updated session for the current directory.
+## Interactive browser
 
-`ah --last --new` starts a fresh session with the same agent as that latest session, in the current directory. Useful as an IDE external tool / task command when you want the last agent without resuming chat history.
+Running `ah` opens a session browser filtered to the current directory (switch to All anytime).
 
-## What it does
+| Key | Action |
+| --- | --- |
+| `↑` `↓` / `j` `k` | Move |
+| `Enter` | Resume selected session |
+| `Ctrl+n` | New session with that agent in its directory |
+| `Ctrl+p` | Toggle preview pane |
+| Type / `/` | Search |
+| `Tab` then `←` `→` | Filter Cwd/All or sort Updated/Created |
+| `Esc` / `q` | Clear search or quit |
 
-- Reads local metadata from Cursor, Claude Code, Codex, and OpenCode sessions.
-- Browses sessions across all known projects or a single filtered project path.
-- Searches indexed local metadata without shelling out to agent CLIs.
-- Launches the selected session in its original working directory.
+Rows are a compact table: age, agent, directory, first prompt words, turn count. The preview pane (on by default) shows metadata and as much of the conversation as fits — beside the list on wide terminals, under it when narrow.
 
-## Notes
+Quitting restores your previous terminal scrollback.
 
-- The browser starts filtered to the current directory while preloading all
-  sessions, so the All filter remains immediately available.
-- Type to search, use Tab to focus Filter/Sort, and use Left/Right to change
-  Cwd/All or Updated/Created.
-- Compact rows are a headed table, broader → specific: age, agent, directory,
-  first-prompt snippet, user-turn count (directory drops on very narrow terminals).
-- An always-on preview pane shows full session metadata and conversation beside
-  the list on wide terminals (≥116 cols) or stacked under it on narrower ones.
-  `Ctrl+p` toggles the pane.
-- `Esc` exits (or clears the active search state); `q` remains a
-  compatibility exit key. The browser uses the terminal alternate screen, so
-  quitting restores your prior scrollback instead of wiping it.
-- `Enter` resumes the selected session; `Ctrl+n` starts a new session with
-  that agent in the session's directory.
-- Provider fields such as historical branch and model are shown only when the
-  local data contains them; discovery reads local data only.
+## How it works
 
-## Releasing
-
-Publish to npm locally after preparing the release:
-
-1. Bump `version` in `package.json` on `main`.
-2. Run `npm test` and `npm pack --dry-run`.
-3. Run `npm publish --otp XXXXXX`.
-4. Create a matching GitHub release for that tag (for example `v0.4.0`); the workflow verifies the published npm version.
-
-The `/publish` skill performs the release preflight and leaves the OTP-protected publish command to the user.
+`ah` reads local session files only. Listing and search never shell out to agent CLIs; those run only when you resume or start a session.
