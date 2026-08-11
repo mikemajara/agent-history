@@ -22,6 +22,7 @@ ah --last
 agent-history
 agent-history ~/github/example
 agent-history --last
+agent-history --last --new
 agent-history ls
 agent-history ls .
 agent-history show <id>
@@ -29,6 +30,8 @@ agent-history resume <id>
 ```
 
 `ah --last` (or `agent-history --last`) launches the most recently updated session for the current directory.
+
+`ah --last --new` starts a fresh session with the same agent as that latest session, in the current directory. Useful as an IDE external tool / task command when you want the last agent without resuming chat history.
 
 ## What it does
 
@@ -46,7 +49,8 @@ agent-history resume <id>
 - `Ctrl+e` toggles a details panel for the selected session.
 - `Esc` exits (or clears the active detail/search state); `q` remains a
   compatibility exit key.
-- `Enter` resumes the selected session directly.
+- `Enter` resumes the selected session; `Ctrl+n` starts a new session with
+  that agent in the session's directory.
 - Provider fields such as historical branch and model are shown only when the
   local data contains them; discovery reads local data only.
 

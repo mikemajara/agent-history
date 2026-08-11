@@ -2,6 +2,7 @@ import readline from "node:readline";
 import { spawn } from "node:child_process";
 import { clampSelection, createBrowserState, getVisibleSessions, handleBrowserInput, setSearchIndex } from "./tui/state.js";
 import { renderBrowserFrame } from "./tui/render.js";
+import { getLaunchCommand } from "./lib/launch-command.js";
 import { buildIndex } from "./lib/search.js";
 
 export async function runInteractiveBrowser(sessions, io, options = {}) {
@@ -77,13 +78,15 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
         return;
       }
 
-      if (action === "select") {
+      if (action === "select" || action === "select-new") {
         const visibleSessions = getVisibleSessions(state);
         const selected = visibleSessions[state.selectedIndex];
-        if (selected?.resumeCommand) {
+        const mode = action === "select-new" ? "new" : "resume";
+        if (selected && getLaunchCommand(selected, mode)) {
           cleanup();
-          launch(selected, io).then(resolve, (error) => {
-            io.stderr.write(`Failed to resume session: ${error.message}\n`);
+          launch(selected, io, { mode }).then(resolve, (error) => {
+            const verb = mode === "new" ? "start" : "resume";
+            io.stderr.write(`Failed to ${verb} session: ${error.message}\n`);
             resolve(1);
           });
         }
@@ -99,8 +102,24 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
   });
 }
 
-export function launchSession(session, io) {
-  const [command, ...args] = session.resumeCommand;
+export function launchSession(session, io, options = {}) {
+  const mode = options.mode === "new" ? "new" : "resume";
+  const launchCommand = getLaunchCommand(session, mode);
+
+  if (!launchCommand?.length) {
+    const message = mode === "new"
+      ? `No new-session command for agent: ${session?.agent ?? "unknown"}`
+      : "Session has no resume command";
+    io.stderr.write(`${message}\n`);
+    return Promise.resolve(1);
+  }
+
+  if (mode === "new" && !session?.cwd) {
+    io.stderr.write("Cannot start a new session without a project directory.\n");
+    return Promise.resolve(1);
+  }
+
+  const [command, ...args] = launchCommand;
 
   return new Promise((resolve) => {
     const child = spawn(command, args, {

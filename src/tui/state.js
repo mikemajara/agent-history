@@ -126,6 +126,10 @@ function handleNormalInput(state, str, key, visibleSessions) {
     return "render";
   }
 
+  if (key?.ctrl && key.name === "n") {
+    return "select-new";
+  }
+
   if (key?.ctrl && key.name === "u") {
     clearSearch(state);
     return "render";
@@ -154,7 +158,7 @@ function handleNormalInput(state, str, key, visibleSessions) {
 
   if (str === "?") {
     state.message =
-      "Controls: j/k/arrows navigate, Ctrl+e details panel, Enter resume, / search, Esc clear+leave search, Ctrl+u clear, q quit | Search matches all conversation text";
+      "Controls: j/k/arrows navigate, Ctrl+e details panel, Enter resume, Ctrl+n new in directory, / search, Esc clear+leave search, Ctrl+u clear, q quit | Search matches all conversation text";
     return "render";
   }
 
@@ -187,6 +191,11 @@ function handleSearchInput(state, str, key, visibleSessions) {
   if (key?.name === "return") {
     clampSelection(state, getVisibleSessions(state));
     return "select";
+  }
+
+  if (key?.ctrl && key.name === "n") {
+    clampSelection(state, getVisibleSessions(state));
+    return "select-new";
   }
 
   if (key?.name === "tab") {

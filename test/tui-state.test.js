@@ -64,6 +64,24 @@ test("search filters live and backspace edits query", () => {
   assert.equal(state.search, "b");
 });
 
+test("ctrl+n selects a new session in the highlighted directory", () => {
+  const state = createBrowserState(sessions);
+
+  assert.equal(handleBrowserInput(state, undefined, { name: "n", ctrl: true }), "select-new");
+  assert.equal(state.selectedId, "abc123");
+});
+
+test("ctrl+n from search mode selects a new session", () => {
+  const state = createBrowserState(sessions);
+  handleBrowserInput(state, "/", {});
+  for (const character of "terminal") {
+    handleBrowserInput(state, character, {});
+  }
+
+  assert.equal(handleBrowserInput(state, undefined, { name: "n", ctrl: true }), "select-new");
+  assert.equal(state.selectedId, "def456");
+});
+
 test("enter selects the highlighted session from search mode", () => {
   const state = createBrowserState(sessions);
   handleBrowserInput(state, "/", {});

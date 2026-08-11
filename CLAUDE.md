@@ -44,7 +44,8 @@ The no-argument command should start filtered to the current directory in a navi
 Expected controls:
 
 - `j` / `k` and arrow keys move selection.
-- `Enter` resumes or opens the selected session.
+- `Enter` resumes the selected session.
+- `Ctrl+n` starts a new session with that agent in the session's directory.
 - `Ctrl+e` expands extended metadata for the selected session.
 - `/` searches across indexed local metadata.
 - `q` exits.

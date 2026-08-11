@@ -12,6 +12,7 @@ Find and resume AI agent sessions for the current repo or directory.
 Usage:
   agent-history [path]        Interactive session browser (current directory by default)
   agent-history --last        Resume the most recent session in this directory
+  agent-history --last --new  Start a fresh session with the last agent used here
   agent-history ls [path]     Scriptable table of sessions
   agent-history show <id>     Detailed metadata for a session
   agent-history resume <id>   Print the resume command for a session
@@ -20,13 +21,15 @@ Also available as: ah
 
 Options:
   --last                      Launch the newest session for the current directory
+  --new                       With --last, start a new session instead of resuming
   -h, --help                  Show this help
   -v, --version               Show version
 
 Interactive controls:
   tab focus filter/sort       left/right change Cwd/All or Updated/Created
   up/down or j/k browse       type to search, / search, Ctrl+e details
-  Enter resume                Esc exit/clear, Ctrl+C exit`;
+  Enter resume                Ctrl+n new in directory
+  Esc exit/clear              Ctrl+C exit`;
 
 export async function main(argv, io, options = {}) {
   const [command, arg] = argv;
@@ -41,8 +44,17 @@ export async function main(argv, io, options = {}) {
     return;
   }
 
-  if (argv.includes("--last")) {
-    const exitCode = await resumeLastSession(io, options);
+  if (argv.includes("--last") || argv.includes("--new")) {
+    if (argv.includes("--new") && !argv.includes("--last")) {
+      io.stderr.write("`--new` requires `--last` (example: agent-history --last --new).\n");
+      process.exitCode = 1;
+      return;
+    }
+
+    const exitCode = await resumeLastSession(io, {
+      ...options,
+      mode: argv.includes("--new") ? "new" : "resume",
+    });
     process.exitCode = exitCode;
     return;
   }
@@ -98,15 +110,24 @@ export async function main(argv, io, options = {}) {
 export async function resumeLastSession(io, options = {}) {
   const loadSessions = options.getSessionsForCwd ?? getSessionsForCwd;
   const launch = options.launchSession ?? launchSession;
+  const resolveCwd = options.resolveTargetCwd ?? resolveTargetCwd;
+  const mode = options.mode === "new" ? "new" : "resume";
   const sessions = await loadSessions();
-  const session = sessions.find((candidate) => candidate.resumeCommand?.length);
+  const session = mode === "new"
+    ? sessions.find((candidate) => candidate.agent)
+    : sessions.find((candidate) => candidate.resumeCommand?.length);
 
   if (!session) {
-    io.stderr.write("No resumable sessions found for this directory.\n");
+    io.stderr.write(
+      mode === "new"
+        ? "No agent sessions found for this directory.\n"
+        : "No resumable sessions found for this directory.\n",
+    );
     return 1;
   }
 
-  return launch(session, io);
+  const cwd = session.cwd ?? await resolveCwd();
+  return launch({ ...session, cwd }, io, { mode });
 }
 
 async function getSessions(pathArg) {

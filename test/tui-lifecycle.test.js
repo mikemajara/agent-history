@@ -19,6 +19,26 @@ test("session launcher runs the resume command in its original directory", async
   assert.deepEqual(errors, []);
 });
 
+test("new session launch requires a known agent and project directory", async () => {
+  const errors = [];
+  const missingCwd = await launchSession({
+    agent: "claude",
+    resumeCommand: ["claude", "--resume", "x"],
+  }, { stderr: { write: (value) => errors.push(value) } }, { mode: "new" });
+
+  assert.equal(missingCwd, 1);
+  assert.match(errors.join(""), /without a project directory/);
+
+  errors.length = 0;
+  const unknownAgent = await launchSession({
+    agent: "unknown",
+    cwd: process.cwd(),
+  }, { stderr: { write: (value) => errors.push(value) } }, { mode: "new" });
+
+  assert.equal(unknownAgent, 1);
+  assert.match(errors.join(""), /No new-session command/);
+});
+
 test("interactive browser removes resize and key listeners on Ctrl+C", async () => {
   const stdin = new EventEmitter();
   stdin.isTTY = true;
@@ -71,6 +91,7 @@ test("Enter in search mode launches the selected session", async () => {
     stderr: { write: () => {} },
   };
   let launchedSession;
+  let launchOptions;
   const result = runInteractiveBrowser([
     {
       agent: "codex",
@@ -80,8 +101,9 @@ test("Enter in search mode launches the selected session", async () => {
       resumeCommand: ["codex", "resume", "session-one"],
     },
   ], io, {
-    launchSession: async (session) => {
+    launchSession: async (session, _io, options) => {
       launchedSession = session;
+      launchOptions = options;
       return 0;
     },
   });
@@ -94,4 +116,48 @@ test("Enter in search mode launches the selected session", async () => {
   assert.equal(launchedSession.id, "session-one");
   assert.equal(launchedSession.cwd, "/tmp/global project");
   assert.deepEqual(launchedSession.resumeCommand, ["codex", "resume", "session-one"]);
+  assert.equal(launchOptions?.mode, "resume");
+});
+
+test("Ctrl+n launches a new session for the selected agent and directory", async () => {
+  const stdin = new EventEmitter();
+  stdin.isTTY = true;
+  stdin.setRawMode = () => {};
+  stdin.resume = () => {};
+  stdin.pause = () => {};
+
+  const io = {
+    stdin,
+    stdout: {
+      isTTY: true,
+      columns: 100,
+      rows: 30,
+      write: () => {},
+    },
+    stderr: { write: () => {} },
+  };
+  let launchedSession;
+  let launchOptions;
+  const result = runInteractiveBrowser([
+    {
+      agent: "claude",
+      id: "session-one",
+      cwd: "/tmp/project",
+      preview: "hello",
+      resumeCommand: ["claude", "--resume", "session-one"],
+    },
+  ], io, {
+    launchSession: async (session, _io, options) => {
+      launchedSession = session;
+      launchOptions = options;
+      return 0;
+    },
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  stdin.emit("keypress", "", { name: "n", ctrl: true });
+
+  assert.equal(await result, 0);
+  assert.equal(launchedSession.id, "session-one");
+  assert.equal(launchOptions?.mode, "new");
 });

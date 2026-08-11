@@ -43,7 +43,7 @@ test("100x30 frame follows the header, row, details, and footer contract", () =>
   assert.match(lines.join("\n"), /Model:\s+claude-opus-4/);
   assert.match(lines.join("\n"), /Branch:\s+feature\/session-details/);
   assert.match(lines.join("\n"), /you: A richer prompt with context/);
-  assert.match(lines.at(-2), /enter resume   esc exit   ctrl\+c exit   tab focus filter\/sort/);
+  assert.match(lines.at(-2), /enter resume   ctrl\+n new   esc exit   ctrl\+c exit   tab focus filter\/sort/);
   assert.match(lines.at(-1), /ctrl\+e expand   ↑\/↓ browse.*1 \/ 1 · 100%/);
   assert.ok(lines.every((line) => line.length <= 100));
 });
@@ -58,7 +58,7 @@ test("60x16 frame keeps controls and rows within the terminal", () => {
   assert.equal(lines[0].trim(), "Resume a previous session");
   assert.match(lines[2], /Type to search/);
   assert.match(lines[3], /Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
-  assert.match(lines.at(-2), /enter resume   esc exit   tab focus/);
+  assert.match(lines.at(-2), /enter resume   ctrl\+n new   esc exit   tab focus/);
   assert.match(lines.at(-1), /ctrl\+e expand   ↑\/↓ browse/);
   assert.ok(lines.every((line) => line.length <= 60));
 });

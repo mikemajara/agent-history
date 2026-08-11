@@ -58,8 +58,8 @@ export function renderBrowserFrame(state, width, height) {
   const footer = [
     "─".repeat(width),
     narrow
-      ? "enter resume   esc exit   tab focus   ←/→ option"
-      : "enter resume   esc exit   ctrl+c exit   tab focus filter/sort   ←/→ change option",
+      ? "enter resume   ctrl+n new   esc exit   tab focus   ←/→ option"
+      : "enter resume   ctrl+n new   esc exit   ctrl+c exit   tab focus filter/sort   ←/→ change option",
     alignFooter("ctrl+e expand   ↑/↓ browse", status, width),
   ];
 
