@@ -53,6 +53,12 @@ test("preview pane starts on and ctrl+p toggles it without losing selection", ()
   assert.equal(state.selectedId, "def456");
 });
 
+test("noPreview option starts the browser with prompt text suppressed", () => {
+  const state = createBrowserState(sessions, { noPreview: true });
+  assert.equal(state.noPreview, true);
+  assert.equal(createBrowserState(sessions).noPreview, false);
+});
+
 test("search mode treats q as text instead of quit", () => {
   const state = createBrowserState(sessions);
   handleBrowserInput(state, "/", {});

@@ -22,6 +22,7 @@ Also available as: ah
 Options:
   --last                      Launch the newest session for the current directory
   --new                       With --last, start a new session instead of resuming
+  --no-preview                Hide prompt/conversation text (list, ls, and details pane)
   --refresh                   Rebuild the local session cache before listing/browsing
   -h, --help                  Show this help
   -v, --version               Show version
@@ -36,9 +37,10 @@ Interactive controls:
   Esc exit/clear              Ctrl+C exit
 
 Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd
-Type into the bordered `/` search field; empty placeholder lists what you can search.
+Type into the bordered / search field; empty placeholder lists what you can search.
 Compact rows show: age · agent · directory · prompt · turns
 Preview pane (on by default): side split on wide terminals, stacked when narrow
+--no-preview keeps metadata and search over agent/id/path/metadata; hides prompts
 
 Cache:
   Session metadata is cached at ~/.cache/agent-history/sessions-v1.json
@@ -47,7 +49,8 @@ Cache:
 
 export async function main(argv, io, options = {}) {
   const refresh = argv.includes("--refresh") || options.refresh === true;
-  const args = argv.filter((arg) => arg !== "--refresh");
+  const noPreview = argv.includes("--no-preview") || options.noPreview === true;
+  const args = argv.filter((arg) => arg !== "--refresh" && arg !== "--no-preview");
   const [command, arg] = args;
 
   if (command === "--help" || command === "-h" || command === "help") {
@@ -93,6 +96,7 @@ export async function main(argv, io, options = {}) {
     const sessions = await getAllSessions({ ...options, refresh });
     const exitCode = await runInteractiveBrowser(sessions, io, {
       currentCwd: await resolveTargetCwd(),
+      noPreview,
     });
     process.exitCode = exitCode;
     return;
@@ -100,7 +104,7 @@ export async function main(argv, io, options = {}) {
 
   if (command === "ls") {
     const sessions = await getSessions(arg, { ...options, refresh });
-    io.stdout.write(`${formatSessionTable(sessions)}\n`);
+    io.stdout.write(`${formatSessionTable(sessions, { noPreview })}\n`);
     return;
   }
 
@@ -133,6 +137,7 @@ export async function main(argv, io, options = {}) {
   const sessions = await getAllSessions({ ...options, refresh });
   const exitCode = await runInteractiveBrowser(sessions, io, {
     currentCwd: await resolveTargetCwd(command),
+    noPreview,
   });
   process.exitCode = exitCode;
 }

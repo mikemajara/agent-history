@@ -32,7 +32,9 @@ ah                          # interactive browser for this directory
 ah ~/github/example         # browse another project
 ah --last                   # resume the newest session here
 ah --last --new             # same agent, fresh session
+ah --no-preview             # browse without showing prompt/conversation text
 ah ls                       # scriptable table
+ah ls --no-preview          # table without preview column text
 ah show <id>                # details
 ah resume <id>              # print the resume command
 ```
@@ -52,6 +54,8 @@ Running `ah` opens a session browser filtered to the current directory (switch t
 | `Esc` / `q` | Clear search or quit |
 
 Rows are a compact table: age, agent, directory, first prompt words, turn count. The preview pane (on by default) shows metadata and as much of the conversation as fits — beside the list on wide terminals, under it when narrow.
+
+Use `ah --no-preview` (or `ah ls --no-preview`) when sharing a screen: prompt snippets and conversation text stay hidden, while agent, id, path, and other metadata remain visible. Search still matches those non-preview fields (and can still match hidden prompt text to find a session, without displaying it).
 
 ### Search syntax
 

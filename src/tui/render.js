@@ -15,11 +15,11 @@ const TURNS_WIDTH = 5;
 
 /** Stable short labels + ANSI colors for known agents. */
 export const AGENT_BADGES = {
-  cursor: { label: "cursor", color: "36" }, // cyan
-  claude: { label: "claude", color: "35" }, // magenta
-  codex: { label: "codex", color: "33" }, // yellow
-  opencode: { label: "open", color: "32" }, // green
-  fx: { label: "fx", color: "34" }, // blue
+  cursor: { label: "cursor", color: "90" }, // gray
+  claude: { label: "claude", color: "38;5;208" }, // orange
+  codex: { label: "codex", color: "34" }, // blue (ChatGPT)
+  opencode: { label: "open", color: "35" }, // purple
+  fx: { label: "fx", color: "30" }, // black
 };
 
 export function renderBrowserFrame(state, width, height) {
@@ -121,12 +121,13 @@ export function renderBrowserFrame(state, width, height) {
   }
 
   const status = `${visibleSessions.length === 0 ? 0 : state.selectedIndex + 1} / ${visibleSessions.length} · ${scrollPercent(state.selectedIndex, visibleSessions.length)}%`;
+  const previewHint = state.noPreview ? "no-preview on" : "ctrl+p preview";
   const footer = [
     "─".repeat(width),
     narrow
       ? "enter resume   ctrl+n new   esc exit   tab focus   ←/→ option"
       : "enter resume   ctrl+n new   esc exit   ctrl+c exit   tab focus filter/sort   ←/→ change option",
-    alignFooter("ctrl+p preview   ↑/↓ browse", status, width),
+    alignFooter(`${previewHint}   ↑/↓ browse`, status, width),
   ];
 
   return [...headerLines, ...bodyLines, ...footer]
@@ -207,7 +208,8 @@ function renderSessionRow(session, state, layout, selected) {
   const age = formatRelativeAge(timestamp, state.now ?? new Date()).padEnd(layout.age, " ");
   // Selected rows use plain badge text so inverse styling stays readable.
   const agent = formatAgentBadge(session.agent, { width: layout.agent, color: !selected });
-  const prompt = truncateRight(promptSnippet(session.preview), layout.prompt).padEnd(layout.prompt, " ");
+  const promptText = state.noPreview ? "-" : promptSnippet(session.preview);
+  const prompt = truncateRight(promptText, layout.prompt).padEnd(layout.prompt, " ");
   const turns = formatTurnCount(countUserTurns(state, session)).padStart(layout.turns, " ");
   const parts = [marker, age, agent];
   if (layout.showDirectory) {

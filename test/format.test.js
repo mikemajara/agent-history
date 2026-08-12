@@ -21,6 +21,25 @@ test("formats a session table with headers", () => {
   assert.match(output, /hello world/);
 });
 
+test("noPreview hides prompt text in the session table", () => {
+  const output = formatSessionTable(
+    [
+      {
+        agent: "codex",
+        id: "1234567890abcdef",
+        updatedAt: new Date("2026-05-29T12:00:00Z"),
+        preview: "secret prompt text",
+      },
+    ],
+    { noPreview: true },
+  );
+
+  assert.match(output, /codex/);
+  assert.match(output, /abcdef/);
+  assert.equal(output.includes("secret prompt text"), false);
+  assert.match(output, /\s-\s*$/m);
+});
+
 test("formats home paths compactly", () => {
   assert.equal(formatProject({ cwd: path.join(os.homedir(), "github", "repo") }), "~/github/repo");
 });

@@ -2,13 +2,14 @@ import path from "node:path";
 import os from "node:os";
 import { formatLocalDate } from "./lib/time.js";
 
-export function formatSessionTable(sessions) {
+export function formatSessionTable(sessions, options = {}) {
+  const hidePreview = options.noPreview === true;
   const rows = sessions.map((session) => ({
     agent: session.agent,
     updated: formatCompactDate(session.updatedAt ?? session.startedAt),
     id: shortenId(session.id),
     project: truncate(formatProject(session), 42),
-    preview: truncate(session.preview ?? "-", 80),
+    preview: hidePreview ? "-" : truncate(session.preview ?? "-", 80),
   }));
 
   return formatTable(rows, ["agent", "updated", "id", "project", "preview"]);

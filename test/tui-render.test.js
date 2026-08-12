@@ -234,15 +234,21 @@ test("toggling the preview pane off restores a full-width list without details",
 });
 
 test("noPreview hides conversation text while keeping metadata in the pane", () => {
-  const state = withSearchIndex(createBrowserState([session]));
+  const state = withSearchIndex(createBrowserState([session], { noPreview: true }));
   state.now = new Date("2026-07-15T12:00:00Z");
-  state.noPreview = true;
 
   const frame = plain(renderBrowserFrame(state, 100, 30));
   assert.match(frame, /Session:\s+11111111-2222-4333-8444-555555555555/);
   assert.match(frame, /Model:\s+claude-opus-4/);
   assert.equal(frame.includes("Conversation:"), false);
   assert.equal(frame.includes("you:"), false);
+  assert.equal(frame.includes("short prompt preview"), false);
+  assert.match(frame, /no-preview on/);
+
+  const layout = listColumnLayout(100);
+  const row = findSessionRow(frame.split("\n"), "claude");
+  assert.ok(row);
+  assert.equal(row.slice(layout.columns.prompt, layout.columns.prompt + layout.prompt).trimEnd(), "-");
 });
 
 test("compact rows show encoded project slugs when cwd is missing", () => {
@@ -441,11 +447,11 @@ test("formatAgentBadge keeps stable width and colors known agents", () => {
   try {
     assert.equal(plain(formatAgentBadge("claude")).length, 7);
     assert.equal(plain(formatAgentBadge("opencode")).trimEnd(), "open");
-    assert.match(formatAgentBadge("cursor"), /^\x1b\[36m/);
-    assert.match(formatAgentBadge("claude"), /^\x1b\[35m/);
-    assert.match(formatAgentBadge("codex"), /^\x1b\[33m/);
-    assert.match(formatAgentBadge("opencode"), /^\x1b\[32m/);
-    assert.match(formatAgentBadge("fx"), /^\x1b\[34m/);
+    assert.match(formatAgentBadge("cursor"), /^\x1b\[90m/);
+    assert.match(formatAgentBadge("claude"), /^\x1b\[38;5;208m/);
+    assert.match(formatAgentBadge("codex"), /^\x1b\[34m/);
+    assert.match(formatAgentBadge("opencode"), /^\x1b\[35m/);
+    assert.match(formatAgentBadge("fx"), /^\x1b\[30m/);
     assert.equal(formatAgentBadge("fx", { color: false }), "fx     ");
   } finally {
     if (previous === undefined) delete process.env.NO_COLOR;
@@ -507,8 +513,8 @@ test("colored agent badges appear in rows and preview when color is enabled", ()
     state.selectedId = "other";
 
     const raw = renderBrowserFrame(state, 100, 30);
-    assert.match(raw, /\x1b\[35mclaude \x1b\[0m/);
-    assert.match(raw, /Provider:\s+\x1b\[36mcursor \x1b\[0m/);
+    assert.match(raw, /\x1b\[38;5;208mclaude \x1b\[0m/);
+    assert.match(raw, /Provider:\s+\x1b\[90mcursor \x1b\[0m/);
   } finally {
     if (previous === undefined) delete process.env.NO_COLOR;
     else process.env.NO_COLOR = previous;

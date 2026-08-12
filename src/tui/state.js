@@ -13,7 +13,7 @@ export function createBrowserState(sessions, options = {}) {
     selectedIndex: 0,
     selectedId: sessions[0]?.id,
     previewPane: true,
-    noPreview: false,
+    noPreview: options.noPreview === true,
     mode: "normal",
     search: "",
     message: "",

@@ -185,3 +185,12 @@ test("main rejects --new without --last", async () => {
 
   assert.match(errors.join(""), /requires `--last`/);
 });
+
+test("help documents --no-preview", async () => {
+  const chunks = [];
+  await main(["--help"], {
+    stdout: { write: (value) => chunks.push(value) },
+    stderr: { write: () => {} },
+  });
+  assert.match(chunks.join(""), /--no-preview/);
+});
