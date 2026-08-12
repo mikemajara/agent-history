@@ -1,6 +1,7 @@
 import { discoverAllClaudeSessions, discoverClaudeSessions } from "./providers/claude.js";
 import { discoverCodexSessions } from "./providers/codex.js";
 import { discoverAllCursorSessions, discoverCursorSessions } from "./providers/cursor.js";
+import { discoverFxSessions } from "./providers/fx.js";
 import { discoverOpenCodeSessions } from "./providers/opencode.js";
 import { encodeClaudeProjectSlug, encodeCursorProjectSlug, resolveTargetCwd } from "./lib/path-utils.js";
 import {
@@ -87,25 +88,27 @@ export function matchesSessionCwd(session, targetCwd) {
 }
 
 async function discoverAllSessionsUncached() {
-  const [cursor, claude, codex, opencode] = await Promise.all([
+  const [cursor, claude, codex, opencode, fx] = await Promise.all([
     discoverAllCursorSessions(),
     discoverAllClaudeSessions(),
     discoverCodexSessions(),
     discoverOpenCodeSessions(),
+    discoverFxSessions(),
   ]);
 
-  return [...cursor, ...claude, ...codex, ...opencode].sort(compareSessionsDesc);
+  return [...cursor, ...claude, ...codex, ...opencode, ...fx].sort(compareSessionsDesc);
 }
 
 async function discoverSessionsForCwd(targetCwd) {
-  const [cursor, claude, codex, opencode] = await Promise.all([
+  const [cursor, claude, codex, opencode, fx] = await Promise.all([
     discoverCursorSessions(targetCwd),
     discoverClaudeSessions(targetCwd),
     discoverCodexSessions(targetCwd),
     discoverOpenCodeSessions(targetCwd),
+    discoverFxSessions(targetCwd),
   ]);
 
-  return [...cursor, ...claude, ...codex, ...opencode].sort(compareSessionsDesc);
+  return [...cursor, ...claude, ...codex, ...opencode, ...fx].sort(compareSessionsDesc);
 }
 
 function compareSessionsDesc(left, right) {

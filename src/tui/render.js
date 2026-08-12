@@ -19,6 +19,7 @@ export const AGENT_BADGES = {
   claude: { label: "claude", color: "35" }, // magenta
   codex: { label: "codex", color: "33" }, // yellow
   opencode: { label: "open", color: "32" }, // green
+  fx: { label: "fx", color: "34" }, // blue
 };
 
 export function renderBrowserFrame(state, width, height) {

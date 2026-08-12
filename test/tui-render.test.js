@@ -445,7 +445,8 @@ test("formatAgentBadge keeps stable width and colors known agents", () => {
     assert.match(formatAgentBadge("claude"), /^\x1b\[35m/);
     assert.match(formatAgentBadge("codex"), /^\x1b\[33m/);
     assert.match(formatAgentBadge("opencode"), /^\x1b\[32m/);
-    assert.equal(formatAgentBadge("claude", { color: false }), "claude ");
+    assert.match(formatAgentBadge("fx"), /^\x1b\[34m/);
+    assert.equal(formatAgentBadge("fx", { color: false }), "fx     ");
   } finally {
     if (previous === undefined) delete process.env.NO_COLOR;
     else process.env.NO_COLOR = previous;

@@ -36,6 +36,7 @@ Initial providers:
 - Cursor: `~/.cursor/projects/<project-slug>/agent-transcripts/**/<session>.jsonl`
 - Claude Code: `~/.claude/projects/<project-slug>/*.jsonl` and `~/.claude/history.jsonl`
 - Codex: `~/.codex/sessions/**/*.jsonl` and `~/.codex/history.jsonl`
+- fx: `~/.fx/sessions/index.json`, `~/.fx/sessions/<id>/session.json`, and `~/.fx/sessions/<id>/events.jsonl`
 
 ## Interactive UX Goals
 
@@ -75,7 +76,7 @@ Normalize all providers into a common session shape:
 
 ```ts
 type AgentSession = {
-  agent: "cursor" | "claude" | "codex";
+  agent: "cursor" | "claude" | "codex" | "opencode" | "fx";
   id: string;
   startedAt?: Date;
   updatedAt?: Date;

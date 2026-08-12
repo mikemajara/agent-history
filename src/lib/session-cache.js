@@ -14,6 +14,9 @@ const CLAUDE_HISTORY_PATH = expandHomePath("~/.claude/history.jsonl");
 const CODEX_SESSIONS_ROOT = expandHomePath("~/.codex/sessions");
 const OPENCODE_DB_PATH = process.env.OPENCODE_DATABASE_PATH
   ?? expandHomePath("~/.local/share/opencode/opencode.db");
+const FX_ROOT = process.env.FX_DATA_DIR ?? expandHomePath("~/.fx");
+const FX_SESSIONS_ROOT = path.join(FX_ROOT, "sessions");
+const FX_INDEX_PATH = path.join(FX_SESSIONS_ROOT, "index.json");
 
 /**
  * @param {{ cacheDir?: string }} [options]
@@ -33,6 +36,8 @@ export function getCachePath(options = {}) {
  *   claudeHistoryPath?: string,
  *   codexSessionsRoot?: string,
  *   opencodeDbPath?: string,
+ *   fxSessionsRoot?: string,
+ *   fxIndexPath?: string,
  * }} [roots]
  */
 export async function collectSourceFingerprint(roots = {}) {
@@ -42,12 +47,17 @@ export async function collectSourceFingerprint(roots = {}) {
   const claudeHistoryPath = roots.claudeHistoryPath ?? CLAUDE_HISTORY_PATH;
   const codexSessionsRoot = roots.codexSessionsRoot ?? CODEX_SESSIONS_ROOT;
   const opencodeDbPath = roots.opencodeDbPath ?? OPENCODE_DB_PATH;
+  const fxSessionsRoot = roots.fxSessionsRoot ?? FX_SESSIONS_ROOT;
+  const fxIndexPath = roots.fxIndexPath ?? FX_INDEX_PATH;
 
   await collectJsonlUnder(cursorRoot, files, (filePath) => filePath.includes(`${path.sep}agent-transcripts${path.sep}`));
   await collectJsonlUnder(claudeProjectsRoot, files);
   await collectFile(claudeHistoryPath, files);
   await collectJsonlUnder(codexSessionsRoot, files);
   await collectFile(opencodeDbPath, files);
+  await collectFile(fxIndexPath, files);
+  await collectJsonUnder(fxSessionsRoot, files, (filePath) => filePath.endsWith(`${path.sep}session.json`));
+  await collectJsonlUnder(fxSessionsRoot, files, (filePath) => filePath.endsWith(`${path.sep}events.jsonl`));
 
   files.sort((left, right) => left.path.localeCompare(right.path));
   const signature = crypto
@@ -141,6 +151,15 @@ async function collectJsonlUnder(root, files, filter) {
   if (!(await pathExists(root))) return;
   const paths = await listFilesRecursive(root, (filePath) => {
     if (!filePath.endsWith(".jsonl")) return false;
+    return filter ? filter(filePath) : true;
+  });
+  await Promise.all(paths.map((filePath) => collectFile(filePath, files)));
+}
+
+async function collectJsonUnder(root, files, filter) {
+  if (!(await pathExists(root))) return;
+  const paths = await listFilesRecursive(root, (filePath) => {
+    if (!filePath.endsWith(".json")) return false;
     return filter ? filter(filePath) : true;
   });
   await Promise.all(paths.map((filePath) => collectFile(filePath, files)));

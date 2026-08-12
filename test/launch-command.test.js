@@ -7,6 +7,7 @@ test("new session commands map each supported agent", () => {
   assert.deepEqual(newSessionCommandForAgent("cursor"), ["cursor-agent"]);
   assert.deepEqual(newSessionCommandForAgent("codex"), ["codex"]);
   assert.deepEqual(newSessionCommandForAgent("opencode"), ["opencode"]);
+  assert.deepEqual(newSessionCommandForAgent("fx"), ["fx"]);
   assert.equal(newSessionCommandForAgent("unknown"), undefined);
 });
 

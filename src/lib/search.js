@@ -1,5 +1,6 @@
 import { readJsonl } from "./jsonl.js";
 import { extractTextFromContent, unwrapPromptText } from "./text.js";
+import { extractFxTurns } from "../providers/fx.js";
 import { extractOpenCodeTurns } from "../providers/opencode.js";
 
 const K1 = 1.5;
@@ -46,6 +47,9 @@ function extractTurnFromRecord(record, agent) {
 async function extractTurns(session) {
   if (session.agent === "opencode") {
     return extractOpenCodeTurns(session);
+  }
+  if (session.agent === "fx") {
+    return extractFxTurns(session);
   }
 
   let records;

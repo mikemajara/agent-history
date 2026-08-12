@@ -3,6 +3,7 @@ const NEW_SESSION_COMMANDS = {
   cursor: ["cursor-agent"],
   codex: ["codex"],
   opencode: ["opencode"],
+  fx: ["fx"],
 };
 
 /**

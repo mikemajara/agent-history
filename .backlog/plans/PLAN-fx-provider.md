@@ -1,6 +1,6 @@
 ---
 slug: fx-provider
-status: ready
+status: done
 issue: https://github.com/mikemajara/agent-history/issues/20
 prd:
 created_at: 2026-08-12T00:42:00Z
