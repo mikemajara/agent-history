@@ -8,6 +8,8 @@ import {
   PREVIEW_SIDE_MIN_WIDTH,
   promptSnippet,
   renderBrowserFrame,
+  renderSearchField,
+  SEARCH_PLACEHOLDER,
 } from "../src/tui/render.js";
 import { createBrowserState } from "../src/tui/state.js";
 
@@ -83,7 +85,8 @@ test("100x30 frame stacks the preview pane and uses the indexed list columns", (
 
   assert.equal(state.previewPane, true);
   assert.equal(lines[0].trim(), "Resume a previous session");
-  assert.match(lines[2], /Type to search.*Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
+  assert.match(lines[2], new RegExp(`┌ / .*${SEARCH_PLACEHOLDER.split(" · ")[0]}`));
+  assert.match(lines[3], /Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
   assert.ok(header, "expected column headers");
   assert.match(header, /AGE\s+AGENT\s+DIRECTORY\s+PROMPT\s+TURNS/);
   assert.ok(row, "expected a compact session row");
@@ -169,7 +172,8 @@ test("60x16 frame drops directory and keeps headers within the terminal", () => 
 
   assert.equal(layout.showDirectory, false);
   assert.equal(lines[0].trim(), "Resume a previous session");
-  assert.match(lines[2], /Type to search/);
+  assert.match(lines[2], /┌ \//);
+  assert.match(lines[2], /Search titles/);
   assert.match(lines[3], /Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
   assert.ok(header);
   assert.match(header, /AGE\s+AGENT\s+PROMPT\s+TURNS/);
@@ -393,4 +397,39 @@ test("no-match free text falls back to the default excerpt", () => {
 
   const frame = plain(renderBrowserFrame(state, 100, 30));
   assert.match(frame, /you: First question about the layout/);
+});
+
+test("search field shows teaching placeholder when empty", () => {
+  const field = plain(renderSearchField({ search: "" }, 80));
+  assert.match(field, /^┌ \/ /);
+  assert.match(field, /Search titles, messages, paths/);
+  assert.match(field, / ┐$/);
+  assert.ok(field.includes(SEARCH_PLACEHOLDER.slice(0, 20)));
+  assert.equal(field.length, 80);
+});
+
+test("search field shows short queries with an end cursor cell", () => {
+  const previous = process.env.NO_COLOR;
+  delete process.env.NO_COLOR;
+  try {
+    const raw = renderSearchField({ search: "parser" }, 80);
+    const field = plain(raw);
+    assert.match(field, /^┌ \/ parser/);
+    assert.match(raw, /parser\x1b\[7m \x1b\[0m/);
+    assert.match(field, / ┐$/);
+    assert.equal(field.length, 80);
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
+});
+
+test("search field left-truncates long overflowing queries", () => {
+  const query = "x".repeat(120);
+  const field = plain(renderSearchField({ search: query }, 60));
+  assert.match(field, /^┌ \/ \.\.\./);
+  assert.ok(field.includes("xxx"));
+  assert.match(field, / ┐$/);
+  assert.equal(field.length, 60);
+  assert.equal(field.includes(query), false);
 });

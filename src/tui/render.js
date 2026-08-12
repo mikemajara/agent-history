@@ -5,6 +5,8 @@ import { clampSelection, getVisibleSessions } from "./state.js";
 /** Terminals at or above this width use a side preview; narrower ones stack it. */
 export const PREVIEW_SIDE_MIN_WIDTH = 116;
 
+export const SEARCH_PLACEHOLDER = "Search titles, messages, paths · dir: · date:";
+
 const PROMPT_WORD_LIMIT = 6;
 const AGE_WIDTH = 9;
 const AGENT_WIDTH = 7;
@@ -15,18 +17,14 @@ export function renderBrowserFrame(state, width, height) {
   clampSelection(state, visibleSessions);
   const narrow = width < 100;
   const footerRows = 3;
-  const searchText = state.search || "Type to search";
   const controls = renderControls(state);
   const headerLines = [
     "Resume a previous session",
     "",
-    narrow ? truncateRight(searchText, width) : alignSearchAndControls(searchText, controls, width),
+    renderSearchField(state, width),
+    truncateRight(controls, width),
+    "",
   ];
-
-  if (narrow) {
-    headerLines.push(truncateRight(controls, width));
-  }
-  headerLines.push("");
 
   const selectedSession = visibleSessions[state.selectedIndex];
   const previewOn = state.previewPane !== false;
@@ -218,14 +216,49 @@ function renderControls(state) {
   return `${filterPart}   ${sortPart}`;
 }
 
-function alignSearchAndControls(searchText, controls, width) {
-  const controlsLen = visibleLength(controls);
-  const left = truncateRight(searchText, Math.max(width - controlsLen - 1, 1));
-  return `${left}${" ".repeat(Math.max(width - left.length - controlsLen, 1))}${controls}`;
+/**
+ * Dedicated search field with `/` prompt, teaching placeholder, and end cursor.
+ * Long queries left-truncate so the editable end (and cursor) stay visible.
+ *
+ * @param {{ search?: string }} state
+ * @param {number} width
+ */
+export function renderSearchField(state, width) {
+  const open = "┌ ";
+  const close = " ┐";
+  const prompt = "/ ";
+  const cursor = inverse(" ");
+  const frameChrome = open.length + prompt.length + close.length;
+  const contentWidth = Math.max(width - frameChrome, 2);
+  const query = String(state.search ?? "");
+  const textWidth = Math.max(contentWidth - 1, 1); // reserve one cell for the cursor
+
+  let content;
+  if (query) {
+    const visibleQuery = query.length > textWidth
+      ? `...${query.slice(-(Math.max(textWidth - 3, 1)))}`
+      : query;
+    const pad = Math.max(textWidth - visibleQuery.length, 0);
+    content = `${visibleQuery}${cursor}${"─".repeat(pad)}`;
+  } else {
+    const placeholder = truncateRight(SEARCH_PLACEHOLDER, textWidth);
+    const pad = Math.max(textWidth - visibleLength(placeholder), 0);
+    content = `${cursor}${dim(placeholder)}${"─".repeat(pad)}`;
+  }
+
+  return padVisible(`${open}${prompt}${content}${close}`, width);
 }
 
 function visibleLength(text) {
   return String(text ?? "").replace(/\x1b\[[0-9;]*m/g, "").length;
+}
+
+function padVisible(text, width) {
+  const length = visibleLength(text);
+  if (length > width) {
+    return truncateRight(String(text).replace(/\x1b\[[0-9;]*m/g, ""), width);
+  }
+  return `${text}${" ".repeat(width - length)}`;
 }
 
 function renderReferenceDetails(session, state, width, budget = Infinity) {

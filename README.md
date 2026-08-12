@@ -47,7 +47,7 @@ Running `ah` opens a session browser filtered to the current directory (switch t
 | `Enter` | Resume selected session |
 | `Ctrl+n` | New session with that agent in its directory |
 | `Ctrl+p` | Toggle preview pane |
-| Type / `/` | Search |
+| Type / `/` | Search (dedicated field; placeholder teaches `dir:` / `date:`) |
 | `Tab` then `←` `→` | Filter Cwd/All or sort Updated/Created |
 | `Esc` / `q` | Clear search or quit |
 

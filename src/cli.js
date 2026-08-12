@@ -32,6 +32,7 @@ Interactive controls:
   Esc exit/clear              Ctrl+C exit
 
 Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd
+Type into the bordered `/` search field; empty placeholder lists what you can search.
 Compact rows show: age · agent · directory · prompt · turns
 Preview pane (on by default): side split on wide terminals, stacked when narrow`;
 
