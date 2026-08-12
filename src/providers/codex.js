@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs/promises";
 import { expandHomePath } from "../lib/path-utils.js";
 import { listFilesRecursive, pathExists } from "../lib/fs-walk.js";
 import { readJsonl } from "../lib/jsonl.js";
@@ -16,7 +17,7 @@ export async function discoverCodexSessions(targetCwd = undefined) {
   const sessions = [];
 
   for (const filePath of files) {
-    const session = await parseCodexSession(filePath, targetCwd);
+    const session = await parseCodexSessionSafe(filePath, targetCwd);
     if (session) {
       sessions.push(session);
     }
@@ -25,8 +26,17 @@ export async function discoverCodexSessions(targetCwd = undefined) {
   return sessions;
 }
 
+async function parseCodexSessionSafe(filePath, targetCwd) {
+  try {
+    return await parseCodexSession(filePath, targetCwd);
+  } catch {
+    return null;
+  }
+}
+
 async function parseCodexSession(filePath, targetCwd) {
   const records = await readJsonl(filePath);
+  const fileStat = await fs.stat(filePath);
   const sessionMeta = records.find((record) => record?.type === "session_meta");
   const turnContext = records.find((record) => record?.type === "turn_context" && record?.payload?.model);
 
@@ -39,8 +49,8 @@ async function parseCodexSession(filePath, targetCwd) {
   return {
     agent: "codex",
     id,
-    startedAt: parseDate(sessionMeta.payload.timestamp ?? records[0]?.timestamp),
-    updatedAt: parseDate(records.at(-1)?.timestamp ?? sessionMeta.payload.timestamp),
+    startedAt: parseDate(sessionMeta.payload.timestamp ?? records[0]?.timestamp) ?? fileStat.birthtime,
+    updatedAt: parseDate(records.at(-1)?.timestamp ?? sessionMeta.payload.timestamp) ?? fileStat.mtime,
     cwd: sessionMeta.payload.cwd,
     preview: findCodexPreview(records),
     transcriptPath: filePath,

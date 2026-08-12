@@ -9,7 +9,7 @@ Promoted to GitHub Issues:
 - #1 Decide safe handoff for selected session command — **closed** (no clipboard; Enter resume; open-new → #17)
 - #2 Always-on TUI preview pane (side/bottom) — **closed** (always-on pane + headed table)
 - #3 Cache session index for large histories — **closed** (sessions-v1.json fingerprint cache)
-- #4 Add no-preview mode for sensitive sessions
+- #4 Add no-preview mode for sensitive sessions — **closed** (`--no-preview`)
 - #5 Harden provider parsers for malformed JSONL
 - #11 Highlight search matches in the TUI preview pane — **closed** (match-anchored preview + term highlight)
 - #12 Color-code agent badges in TUI session rows — **closed** (stable-width colored badges)
@@ -18,6 +18,7 @@ Promoted to GitHub Issues:
 - #15 In-query `dir:`/`date:` filters; keep search generic — **closed** (dir/date tokens + docs/tests)
 - #16 Keycap-styled TUI footer shortcuts
 - #17 Open new agent session from TUI — **closed** (already implemented via `Ctrl+n`)
+- #20 Add fx session provider — **closed** (`src/providers/fx.js`)
 
 Deferred / already tracked separately:
 - #9 Scrollable session transcript view (full transcript; not the live preview pane)

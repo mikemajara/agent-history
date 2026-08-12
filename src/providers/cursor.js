@@ -17,7 +17,7 @@ export async function discoverCursorSessions(targetCwd) {
   }
 
   const files = await listFilesRecursive(transcriptRoot, (filePath) => filePath.endsWith(".jsonl"));
-  const sessions = await Promise.all(files.map((filePath) => parseCursorSession(filePath, targetCwd)));
+  const sessions = await Promise.all(files.map((filePath) => parseCursorSessionSafe(filePath, targetCwd)));
 
   return sessions.filter(Boolean);
 }
@@ -43,12 +43,20 @@ export async function discoverAllCursorSessions() {
     const resolvedCwd = await resolveEncodedProjectSlug(entry.name, { stripLeadingDots: true });
     const files = await listFilesRecursive(transcriptRoot, (filePath) => filePath.endsWith(".jsonl"));
     const parsed = await Promise.all(
-      files.map((filePath) => parseCursorSession(filePath, resolvedCwd, entry.name)),
+      files.map((filePath) => parseCursorSessionSafe(filePath, resolvedCwd, entry.name)),
     );
     sessions.push(...parsed.filter(Boolean));
   }
 
   return sessions;
+}
+
+async function parseCursorSessionSafe(filePath, targetCwd, projectSlug = undefined) {
+  try {
+    return await parseCursorSession(filePath, targetCwd, projectSlug);
+  } catch {
+    return null;
+  }
 }
 
 async function parseCursorSession(filePath, targetCwd, projectSlug = undefined) {

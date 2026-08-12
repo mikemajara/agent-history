@@ -22,7 +22,7 @@ export async function discoverClaudeSessions(targetCwd) {
   const sessions = await Promise.all(
     dirEntries
       .filter((entry) => entry.endsWith(".jsonl"))
-      .map((filePath) => parseClaudeSession(filePath, targetCwd, historyIndex)),
+      .map((filePath) => parseClaudeSessionSafe(filePath, targetCwd, historyIndex)),
   );
 
   return sessions.filter(Boolean);
@@ -46,7 +46,7 @@ export async function discoverAllClaudeSessions() {
     const files = (await readProjectDir(projectRoot)).filter((filePath) => filePath.endsWith(".jsonl"));
     const resolvedCwd = await resolveEncodedProjectSlug(entry.name);
     const parsed = await Promise.all(
-      files.map((filePath) => parseClaudeSession(filePath, resolvedCwd, historyIndex, entry.name)),
+      files.map((filePath) => parseClaudeSessionSafe(filePath, resolvedCwd, historyIndex, entry.name)),
     );
     sessions.push(...parsed.filter(Boolean));
   }
@@ -55,8 +55,18 @@ export async function discoverAllClaudeSessions() {
 }
 
 async function readProjectDir(projectRoot) {
-  const entries = await fs.readdir(projectRoot);
-  return entries.map((entry) => path.join(projectRoot, entry));
+  const entries = await fs.readdir(projectRoot, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(projectRoot, entry.name));
+}
+
+async function parseClaudeSessionSafe(filePath, targetCwd, historyIndex, projectSlug = undefined) {
+  try {
+    return await parseClaudeSession(filePath, targetCwd, historyIndex, projectSlug);
+  } catch {
+    return null;
+  }
 }
 
 async function parseClaudeSession(filePath, targetCwd, historyIndex, projectSlug = undefined) {
