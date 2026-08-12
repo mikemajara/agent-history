@@ -69,6 +69,8 @@ Cwd/All still applies first. Example: `dir:agent-history date:today parser`.
 
 With free-text terms active, the preview pane jumps to the earliest matching turn and highlights those terms. Clearing the query restores the default conversation excerpt. `dir:` / `date:` tokens are ignored when choosing highlight terms.
 
+Conversation text in the preview also renders a small markdown subset: `**bold**`, `*italic*`, `` `code` ``, `#` headings, and `-` / `*` list bullets (`NO_COLOR` strips markers only).
+
 Quitting restores your previous terminal scrollback.
 
 ## How it works

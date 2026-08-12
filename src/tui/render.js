@@ -1,4 +1,5 @@
 import { formatProject, formatResumeCommand } from "../format.js";
+import { formatMarkdownLines } from "../lib/markdown.js";
 import { freeTextTerms } from "../lib/query.js";
 import { clampSelection, getVisibleSessions } from "./state.js";
 
@@ -337,14 +338,19 @@ function renderReferenceDetails(session, state, width, budget = Infinity) {
   let truncated = false;
   for (const turn of excerpt) {
     const role = turn.role === "assistant" ? "ai:  " : "you: ";
-    const wrapped = wrapReferenceText(`${role}${turn.text}`, Math.max(width - 2, 1));
-    for (const line of wrapped) {
-      if (Number.isFinite(budget) && lines.length >= budget) {
-        truncated = true;
-        break;
+    const mdLines = formatMarkdownLines(turn.text);
+    for (let lineIndex = 0; lineIndex < mdLines.length; lineIndex++) {
+      const prefix = lineIndex === 0 ? role : " ".repeat(role.length);
+      const wrapped = wrapReferenceText(`${prefix}${mdLines[lineIndex]}`, Math.max(width - 2, 1));
+      for (const line of wrapped) {
+        if (Number.isFinite(budget) && lines.length >= budget) {
+          truncated = true;
+          break;
+        }
+        const highlighted = highlightMatches(line, terms);
+        lines.push(formatFrameLine(` ${highlighted}`, width));
       }
-      const highlighted = highlightMatches(line, terms);
-      lines.push(formatFrameLine(` ${highlighted}`, width));
+      if (truncated) break;
     }
     if (truncated) break;
   }
@@ -423,12 +429,11 @@ function wrapReferenceText(value, width) {
   const lines = [];
   let line = "";
   for (const word of words) {
-    if (!line) {
-      line = word;
-    } else if (line.length + word.length + 1 <= width) {
-      line += ` ${word}`;
+    const next = line ? `${line} ${word}` : word;
+    if (visibleLength(next) <= width) {
+      line = next;
     } else {
-      lines.push(line);
+      if (line) lines.push(line);
       line = word;
     }
   }

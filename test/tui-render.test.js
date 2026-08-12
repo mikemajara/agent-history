@@ -513,3 +513,28 @@ test("colored agent badges appear in rows and preview when color is enabled", ()
     else process.env.NO_COLOR = previous;
   }
 });
+
+test("preview conversation renders basic markdown styles", () => {
+  const state = withSearchIndex(createBrowserState([session]), [
+    { role: "user", text: "# Setup\nUse **bold** and `code`.\n- first item" },
+    { role: "assistant", text: "Done." },
+  ]);
+  state.now = new Date("2026-07-15T12:00:00Z");
+
+  const previous = process.env.NO_COLOR;
+  delete process.env.NO_COLOR;
+  try {
+    const raw = renderBrowserFrame(state, 100, 30);
+    const frame = plain(raw);
+    assert.match(frame, /you: Setup/);
+    assert.match(frame, /Use bold and code/);
+    assert.match(frame, /• first item/);
+    assert.equal(frame.includes("**bold**"), false);
+    assert.match(raw, /\x1b\[1mSetup\x1b\[0m/);
+    assert.match(raw, /\x1b\[1mbold\x1b\[0m/);
+    assert.match(raw, /\x1b\[36mcode\x1b\[0m/);
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
+});
