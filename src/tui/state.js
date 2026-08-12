@@ -160,7 +160,7 @@ function handleNormalInput(state, str, key, visibleSessions) {
 
   if (str === "?") {
     state.message =
-      "Controls: j/k/arrows navigate, Ctrl+p toggle preview pane, Enter resume, Ctrl+n new in directory, / search, Esc clear+leave search, Ctrl+u clear, q quit | Rows: age · agent · directory · prompt · turns | Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd";
+      "Controls: j/k/arrows navigate, Ctrl+p toggle preview pane, Enter resume, Ctrl+n new in directory, / search, Esc clear+leave search, Ctrl+u clear, q quit | Rows: age · agent · directory · prompt · turns | Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd (preview jumps to matches)";
     return "render";
   }
 

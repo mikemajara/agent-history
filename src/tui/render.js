@@ -1,4 +1,5 @@
 import { formatProject, formatResumeCommand } from "../format.js";
+import { freeTextTerms } from "../lib/query.js";
 import { clampSelection, getVisibleSessions } from "./state.js";
 
 /** Terminals at or above this width use a side preview; narrower ones stack it. */
@@ -259,13 +260,8 @@ function renderReferenceDetails(session, state, width, budget = Infinity) {
   lines.push(formatFrameLine(" Conversation:", width));
 
   const turns = state.searchIndex?.docs?.[state.sessions.indexOf(session)]?.turns ?? [];
-  const userIndex = turns.findIndex((turn) => turn.role === "user");
-  const excerpt = userIndex >= 0
-    ? turns.slice(userIndex)
-    : turns.filter((turn) => turn.role === "user" || turn.role === "assistant");
-  if (excerpt.length === 0 && session.preview) {
-    excerpt.push({ role: "user", text: session.preview });
-  }
+  const terms = freeTextTerms(state.search, state.now ?? new Date());
+  const excerpt = buildConversationExcerpt(turns, session, terms);
 
   let truncated = false;
   for (const turn of excerpt) {
@@ -276,7 +272,8 @@ function renderReferenceDetails(session, state, width, budget = Infinity) {
         truncated = true;
         break;
       }
-      lines.push(formatFrameLine(` ${line}`, width));
+      const highlighted = highlightMatches(line, terms);
+      lines.push(formatFrameLine(` ${highlighted}`, width));
     }
     if (truncated) break;
   }
@@ -286,6 +283,60 @@ function renderReferenceDetails(session, state, width, budget = Infinity) {
   }
 
   return lines;
+}
+
+/**
+ * Default excerpt starts at the first user turn. With free-text terms, jump to
+ * the earliest matching turn (one prior turn of context when available).
+ *
+ * @param {{ role: string, text: string }[]} turns
+ * @param {{ preview?: string }} session
+ * @param {string[]} terms
+ */
+export function buildConversationExcerpt(turns, session, terms = []) {
+  const userIndex = turns.findIndex((turn) => turn.role === "user");
+  let excerpt = userIndex >= 0
+    ? turns.slice(userIndex)
+    : turns.filter((turn) => turn.role === "user" || turn.role === "assistant");
+  if (excerpt.length === 0 && session.preview) {
+    excerpt = [{ role: "user", text: session.preview }];
+  }
+
+  if (!terms.length || excerpt.length === 0) {
+    return excerpt;
+  }
+
+  const matchIndex = excerpt.findIndex((turn) => terms.some((term) => turn.text.toLowerCase().includes(term)));
+  if (matchIndex < 0) {
+    return excerpt;
+  }
+
+  const start = Math.max(0, matchIndex - 1);
+  return excerpt.slice(start);
+}
+
+/**
+ * Highlight free-text match terms. Honors NO_COLOR.
+ *
+ * @param {string} text
+ * @param {string[]} terms
+ */
+export function highlightMatches(text, terms) {
+  if (!terms?.length || process.env.NO_COLOR) {
+    return text;
+  }
+
+  const unique = [...new Set(terms.filter(Boolean))].sort((a, b) => b.length - a.length);
+  if (unique.length === 0) {
+    return text;
+  }
+
+  const pattern = new RegExp(`(${unique.map(escapeRegExp).join("|")})`, "gi");
+  return String(text ?? "").replace(pattern, (match) => highlight(match));
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function clipReferenceDetails(lines, budget, width) {
@@ -371,6 +422,11 @@ function inverse(text) {
 
 function dim(text) {
   return colorize("2", text);
+}
+
+function highlight(text) {
+  // Bold yellow — readable on dark and light terminals without reverse video.
+  return colorize("1;33", text);
 }
 
 function colorize(code, text) {

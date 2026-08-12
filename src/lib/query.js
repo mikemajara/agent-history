@@ -47,6 +47,20 @@ export function parseQuery(query, now = new Date()) {
 }
 
 /**
+ * Free-text highlight/search terms from a query, ignoring dir:/date: tokens.
+ * Mirrors BM25 tokenization (lowercase, non-word split, length > 1).
+ *
+ * @param {string} query
+ * @param {Date} [now]
+ * @returns {string[]}
+ */
+export function freeTextTerms(query, now = new Date()) {
+  const { freeText } = parseQuery(query, now);
+  if (!freeText.trim()) return [];
+  return freeText.toLowerCase().split(/\W+/).filter((term) => term.length > 1);
+}
+
+/**
  * @param {import("../types.js").AgentSession} session
  * @param {{ freeText: string, dir: string | null, date: { kind: string, value?: number } | null }} parsed
  * @param {Date} [now]

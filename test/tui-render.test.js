@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildConversationExcerpt,
   countUserTurns,
+  highlightMatches,
   listColumnLayout,
   PREVIEW_SIDE_MIN_WIDTH,
   promptSnippet,
@@ -299,4 +301,96 @@ test("compact rows left-truncate long directories so the leaf stays visible", ()
 
   assert.ok(directory.startsWith("..."));
   assert.match(directory, /billing-api\s*$/);
+});
+
+test("buildConversationExcerpt anchors to the earliest free-text match with prior context", () => {
+  const turns = [
+    { role: "user", text: "First question about the layout." },
+    { role: "assistant", text: "First answer about the layout." },
+    { role: "user", text: "Second question about turn counts." },
+    { role: "assistant", text: "Second answer about turn counts." },
+    { role: "user", text: "Third question about the preview pane budget." },
+  ];
+
+  const matched = buildConversationExcerpt(turns, session, ["preview"]);
+  assert.equal(matched[0].text, "Second answer about turn counts.");
+  assert.equal(matched[1].text, "Third question about the preview pane budget.");
+
+  const noMatch = buildConversationExcerpt(turns, session, ["zzzz"]);
+  assert.equal(noMatch[0].text, "First question about the layout.");
+
+  const empty = buildConversationExcerpt(turns, session, []);
+  assert.equal(empty[0].text, "First question about the layout.");
+});
+
+test("search match highlights terms in the preview and ignores filter tokens", () => {
+  const longTurns = [
+    { role: "user", text: "First question about the layout." },
+    { role: "assistant", text: "First answer about the layout." },
+    { role: "user", text: "Please inspect the billing invoice totals." },
+    { role: "assistant", text: "I will inspect the billing invoice totals." },
+  ];
+  const state = withSearchIndex(createBrowserState([session]), longTurns);
+  state.now = new Date("2026-07-15T12:00:00Z");
+  state.search = "dir:github date:bogus billing";
+  state.rankedSessions = [session];
+
+  const previous = process.env.NO_COLOR;
+  delete process.env.NO_COLOR;
+  try {
+    const raw = renderBrowserFrame(state, 100, 30);
+    const frame = plain(raw);
+    assert.match(frame, /you: Please inspect the billing invoice totals/);
+    assert.equal(frame.includes("First question about the layout"), false);
+    assert.match(raw, /\x1b\[1;33mbilling\x1b\[0m/i);
+    assert.equal(raw.toLowerCase().includes("\x1b[1;33mdir\x1b[0m"), false);
+    assert.equal(raw.toLowerCase().includes("\x1b[1;33mgithub\x1b[0m"), false);
+    assert.equal(raw.toLowerCase().includes("\x1b[1;33mbogus\x1b[0m"), false);
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
+});
+
+test("empty query keeps the default conversation excerpt without highlights", () => {
+  const state = withSearchIndex(createBrowserState([session]));
+  state.now = new Date("2026-07-15T12:00:00Z");
+  state.search = "";
+
+  const previous = process.env.NO_COLOR;
+  delete process.env.NO_COLOR;
+  try {
+    const raw = renderBrowserFrame(state, 100, 30);
+    assert.match(plain(raw), /you: A richer prompt with context/);
+    assert.equal(raw.includes("\x1b[1;33m"), false);
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
+});
+
+test("highlightMatches is a no-op under NO_COLOR", () => {
+  const previous = process.env.NO_COLOR;
+  process.env.NO_COLOR = "1";
+  try {
+    assert.equal(highlightMatches("billing invoice", ["billing"]), "billing invoice");
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
+});
+
+test("no-match free text falls back to the default excerpt", () => {
+  const state = withSearchIndex(createBrowserState([session]), [
+    { role: "user", text: "First question about the layout." },
+    { role: "assistant", text: "First answer about the layout." },
+    { role: "user", text: "Later turn without the needle." },
+  ]);
+  state.now = new Date("2026-07-15T12:00:00Z");
+  state.search = "zzzz";
+  // Keep the selected session visible even though conversation text has no match.
+  state.rankedSessions = [session];
+
+  const frame = plain(renderBrowserFrame(state, 100, 30));
+  assert.match(frame, /you: First question about the layout/);
 });

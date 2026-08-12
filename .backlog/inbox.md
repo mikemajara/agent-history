@@ -11,7 +11,7 @@ Promoted to GitHub Issues:
 - #3 Cache session index for large histories
 - #4 Add no-preview mode for sensitive sessions
 - #5 Harden provider parsers for malformed JSONL
-- #11 Highlight search matches in the TUI preview pane
+- #11 Highlight search matches in the TUI preview pane — **closed** (match-anchored preview + term highlight)
 - #12 Color-code agent badges in TUI session rows
 - #13 Add directory column to compact TUI rows
 - #14 Search-first TUI input chrome with teaching placeholder

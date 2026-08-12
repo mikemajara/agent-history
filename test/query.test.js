@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { matchesQueryTokens, parseQuery } from "../src/lib/query.js";
+import { matchesQueryTokens, parseQuery, freeTextTerms } from "../src/lib/query.js";
 
 const now = new Date("2026-08-12T15:00:00");
 
@@ -10,6 +10,11 @@ test("parseQuery extracts dir and date tokens and leaves free text", () => {
     dir: "alpha",
     date: { kind: "today" },
   });
+});
+
+test("freeTextTerms ignores dir and date tokens", () => {
+  assert.deepEqual(freeTextTerms("dir:alpha date:today parser fix", now), ["parser", "fix"]);
+  assert.deepEqual(freeTextTerms("dir:only", now), []);
 });
 
 test("parseQuery supports MVP date forms and ignores invalid dates", () => {
