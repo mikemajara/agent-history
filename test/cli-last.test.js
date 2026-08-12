@@ -194,3 +194,21 @@ test("help documents --no-preview", async () => {
   });
   assert.match(chunks.join(""), /--no-preview/);
 });
+
+test("main rejects unknown options instead of treating them as paths", async () => {
+  const errors = [];
+  const previousExitCode = process.exitCode;
+  process.exitCode = undefined;
+
+  try {
+    await main(["--updgrade"], {
+      stdout: { write: () => {} },
+      stderr: { write: (value) => errors.push(value) },
+    });
+    assert.equal(process.exitCode, 1);
+  } finally {
+    process.exitCode = previousExitCode;
+  }
+
+  assert.match(errors.join(""), /Unknown option: --updgrade/);
+});

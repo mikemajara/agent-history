@@ -7,6 +7,9 @@ npm i -g agent-history@latest
 # also installs the short alias: ah
 
 npx agent-history@latest
+
+# later: upgrade the global install
+ah --upgrade
 ```
 
 ## Why
@@ -32,6 +35,7 @@ ah                          # interactive browser for this directory
 ah ~/github/example         # browse another project
 ah --last                   # resume the newest session here
 ah --last --new             # same agent, fresh session
+ah --upgrade                # reinstall latest globally via npm
 ah --no-preview             # browse without showing prompt/conversation text
 ah ls                       # scriptable table
 ah ls --no-preview          # table without preview column text

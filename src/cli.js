@@ -2,9 +2,22 @@ import { createRequire } from "node:module";
 import { formatResumeCommand, formatSessionDetail, formatSessionTable } from "./format.js";
 import { getAllSessions, getSessionsForCwd } from "./session-index.js";
 import { resolveTargetCwd } from "./lib/path-utils.js";
+import { upgradePackage } from "./lib/upgrade.js";
 import { launchSession, runInteractiveBrowser } from "./tui.js";
 
-const { version } = createRequire(import.meta.url)("../package.json");
+const { name: packageName, version } = createRequire(import.meta.url)("../package.json");
+
+const KNOWN_OPTIONS = new Set([
+  "--help",
+  "-h",
+  "--version",
+  "-v",
+  "--last",
+  "--new",
+  "--no-preview",
+  "--refresh",
+  "--upgrade",
+]);
 
 const HELP_TEXT = `agent-history ${version}
 Find and resume AI agent sessions for the current repo or directory.
@@ -13,6 +26,7 @@ Usage:
   agent-history [path]        Interactive session browser (current directory by default)
   agent-history --last        Resume the most recent session in this directory
   agent-history --last --new  Start a fresh session with the last agent used here
+  agent-history --upgrade     Install the latest version globally via npm
   agent-history ls [path]     Scriptable table of sessions
   agent-history show <id>     Detailed metadata for a session
   agent-history resume <id>   Print the resume command for a session
@@ -24,6 +38,7 @@ Options:
   --new                       With --last, start a new session instead of resuming
   --no-preview                Hide prompt/conversation text (list, ls, and details pane)
   --refresh                   Rebuild the local session cache before listing/browsing
+  --upgrade                   Reinstall agent-history@latest with npm -g
   -h, --help                  Show this help
   -v, --version               Show version
 
@@ -48,6 +63,13 @@ Cache:
   Override location with AGENT_HISTORY_CACHE_DIR; force rebuild with --refresh`;
 
 export async function main(argv, io, options = {}) {
+  const unknownOption = argv.find((arg) => arg.startsWith("-") && !KNOWN_OPTIONS.has(arg));
+  if (unknownOption) {
+    io.stderr.write(`Unknown option: ${unknownOption}\n`);
+    process.exitCode = 1;
+    return;
+  }
+
   const refresh = argv.includes("--refresh") || options.refresh === true;
   const noPreview = argv.includes("--no-preview") || options.noPreview === true;
   const args = argv.filter((arg) => arg !== "--refresh" && arg !== "--no-preview");
@@ -60,6 +82,22 @@ export async function main(argv, io, options = {}) {
 
   if (command === "--version" || command === "-v") {
     io.stdout.write(`${version}\n`);
+    return;
+  }
+
+  if (argv.includes("--upgrade")) {
+    if (argv.some((arg) => arg !== "--upgrade")) {
+      io.stderr.write("`--upgrade` does not accept other arguments.\n");
+      process.exitCode = 1;
+      return;
+    }
+
+    const exitCode = await upgradePackage(io, {
+      packageName,
+      currentVersion: version,
+      runNpm: options.runNpm,
+    });
+    process.exitCode = exitCode;
     return;
   }
 
