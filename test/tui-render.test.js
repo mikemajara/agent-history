@@ -109,6 +109,32 @@ test("100x30 frame stacks the preview pane and uses the indexed list columns", (
   assert.ok(lines.every((line) => line.length <= 100));
 });
 
+test("focused filter/sort control is inverse-highlighted", () => {
+  const previous = process.env.NO_COLOR;
+  delete process.env.NO_COLOR;
+  try {
+    const state = createBrowserState([session]);
+    state.now = new Date("2026-07-15T12:00:00Z");
+    state.focusedControl = "filter";
+
+    const filterFocused = renderBrowserFrame(state, 100, 30);
+    assert.match(
+      filterFocused,
+      /\x1b\[7mFilter: Cwd \[All\]\x1b\[0m {3}Sort: \[Updated\] Created/,
+    );
+
+    state.focusedControl = "sort";
+    const sortFocused = renderBrowserFrame(state, 100, 30);
+    assert.match(
+      sortFocused,
+      /Filter: Cwd \[All\] {3}\x1b\[7mSort: \[Updated\] Created\x1b\[0m/,
+    );
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
+});
+
 test("preview pane fills remaining height with later conversation turns", () => {
   const longTurns = [
     { role: "user", text: "First question about the layout." },

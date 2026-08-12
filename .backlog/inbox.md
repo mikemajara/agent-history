@@ -5,6 +5,7 @@ Raw ideas not yet promoted to GitHub Issues.
 ## Inbox
 
 Promoted to GitHub Issues:
+- #18 Highlight the focused filter/sort control when Tabbing — **closed** (inverse highlight on focused control)
 - #1 Decide safe handoff for selected session command — **closed** (no clipboard; Enter resume; open-new → #17)
 - #2 Always-on TUI preview pane (side/bottom) — refined, ready
 - #3 Cache session index for large histories
@@ -16,7 +17,7 @@ Promoted to GitHub Issues:
 - #14 Search-first TUI input chrome with teaching placeholder
 - #15 In-query `dir:`/`date:` filters; keep search generic — refined, ready
 - #16 Keycap-styled TUI footer shortcuts
-- #17 Open new agent session from TUI (Ctrl+n / Alt+Enter)
+- #17 Open new agent session from TUI — **closed** (already implemented via `Ctrl+n`)
 
 Deferred / already tracked separately:
 - #9 Scrollable session transcript view (full transcript; not the live preview pane)

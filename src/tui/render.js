@@ -208,14 +208,23 @@ function renderSessionRow(session, state, layout, selected) {
 }
 
 function renderControls(state) {
-  const filter = state.scope === "cwd" ? "[Cwd] All" : "Cwd [All]";
-  const sort = state.sort === "created" ? "Updated [Created]" : "[Updated] Created";
-  return `Filter: ${filter}   Sort: ${sort}`;
+  const filterOptions = state.scope === "cwd" ? "[Cwd] All" : "Cwd [All]";
+  const sortOptions = state.sort === "created" ? "Updated [Created]" : "[Updated] Created";
+  const filter = `Filter: ${filterOptions}`;
+  const sort = `Sort: ${sortOptions}`;
+  const filterPart = state.focusedControl === "filter" ? inverse(filter) : filter;
+  const sortPart = state.focusedControl === "sort" ? inverse(sort) : sort;
+  return `${filterPart}   ${sortPart}`;
 }
 
 function alignSearchAndControls(searchText, controls, width) {
-  const left = truncateRight(searchText, Math.max(width - controls.length - 1, 1));
-  return `${left}${" ".repeat(Math.max(width - left.length - controls.length, 1))}${controls}`;
+  const controlsLen = visibleLength(controls);
+  const left = truncateRight(searchText, Math.max(width - controlsLen - 1, 1));
+  return `${left}${" ".repeat(Math.max(width - left.length - controlsLen, 1))}${controls}`;
+}
+
+function visibleLength(text) {
+  return String(text ?? "").replace(/\x1b\[[0-9;]*m/g, "").length;
 }
 
 function renderReferenceDetails(session, state, width, budget = Infinity) {
