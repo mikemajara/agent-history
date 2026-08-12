@@ -2,7 +2,7 @@
 
 # GitHub Issues
 
-Generated at: 2026-08-12T00:21:43.092Z
+Generated at: 2026-08-12T00:25:52.934Z
 
 | Issue | Status | Title | Labels | Assignees | Updated |
 | --- | --- | --- | --- | --- | --- |
@@ -13,7 +13,7 @@ Generated at: 2026-08-12T00:21:43.092Z
 | #14 | OPEN | [Search-first TUI input chrome with teaching placeholder](https://github.com/mikemajara/agent-history/issues/14) | `agent-ready`, `priority:medium`, `status:ready`, `type:nit` | - | 2026-08-11 |
 | #13 | CLOSED | [Add directory column to compact TUI rows](https://github.com/mikemajara/agent-history/issues/13) | `agent-ready`, `priority:medium`, `type:feat` | - | 2026-08-11 |
 | #12 | OPEN | [Color-code agent badges in TUI session rows](https://github.com/mikemajara/agent-history/issues/12) | `agent-ready`, `priority:medium`, `status:ready`, `type:nit` | - | 2026-08-11 |
-| #11 | OPEN | [Highlight search matches in the TUI preview pane](https://github.com/mikemajara/agent-history/issues/11) | `agent-ready`, `priority:medium`, `status:ready`, `type:feat` | - | 2026-08-11 |
+| #11 | CLOSED | [Highlight search matches in the TUI preview pane](https://github.com/mikemajara/agent-history/issues/11) | `agent-ready`, `priority:medium`, `status:doing`, `type:feat` | - | 2026-08-12 |
 | #10 | OPEN | [Add comfortable-density session rows](https://github.com/mikemajara/agent-history/issues/10) | - | - | 2026-07-28 |
 | #9 | OPEN | [Add a scrollable session transcript view](https://github.com/mikemajara/agent-history/issues/9) | - | - | 2026-07-28 |
 | #8 | OPEN | [When quitting agent history the terminal should clear](https://github.com/mikemajara/agent-history/issues/8) | - | - | 2026-06-14 |
