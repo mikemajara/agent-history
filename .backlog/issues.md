@@ -2,10 +2,12 @@
 
 # GitHub Issues
 
-Generated at: 2026-08-12T00:32:38.031Z
+Generated at: 2026-08-12T00:41:23.753Z
 
 | Issue | Status | Title | Labels | Assignees | Updated |
 | --- | --- | --- | --- | --- | --- |
+| #20 | OPEN | [Add fx session provider](https://github.com/mikemajara/agent-history/issues/20) | `agent-ready`, `priority:medium`, `status:ready`, `type:feat` | - | 2026-08-12 |
+| #19 | CLOSED | [Basic markdown rendering in TUI preview pane](https://github.com/mikemajara/agent-history/issues/19) | `agent-ready`, `priority:medium`, `status:doing`, `type:feat` | - | 2026-08-12 |
 | #18 | CLOSED | [Highlight the focused filter/sort control when Tabbing](https://github.com/mikemajara/agent-history/issues/18) | `priority:medium`, `status:doing`, `type:nit` | - | 2026-08-11 |
 | #17 | CLOSED | [Open new agent session from TUI (Ctrl+n / Alt+Enter)](https://github.com/mikemajara/agent-history/issues/17) | `agent-ready`, `priority:medium`, `status:ready`, `type:feat` | - | 2026-08-11 |
 | #16 | OPEN | [Keycap-styled TUI footer shortcuts](https://github.com/mikemajara/agent-history/issues/16) | `agent-ready`, `priority:low`, `status:ready`, `type:nit` | - | 2026-08-11 |
