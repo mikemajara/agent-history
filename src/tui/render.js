@@ -12,6 +12,14 @@ const AGE_WIDTH = 9;
 const AGENT_WIDTH = 7;
 const TURNS_WIDTH = 5;
 
+/** Stable short labels + ANSI colors for known agents. */
+export const AGENT_BADGES = {
+  cursor: { label: "cursor", color: "36" }, // cyan
+  claude: { label: "claude", color: "35" }, // magenta
+  codex: { label: "codex", color: "33" }, // yellow
+  opencode: { label: "open", color: "32" }, // green
+};
+
 export function renderBrowserFrame(state, width, height) {
   const visibleSessions = getVisibleSessions(state);
   clampSelection(state, visibleSessions);
@@ -65,7 +73,7 @@ export function renderBrowserFrame(state, width, height) {
     const index = start + windowIndex;
     const selected = index === state.selectedIndex;
     const row = renderSessionRow(session, state, layout, selected);
-    const styled = selected ? inverse(row) : index % 2 === 0 ? dim(row) : row;
+    const styled = styleSessionRow(row, { selected, zebra: index % 2 === 0 });
     listLines.push(formatFrameLine(styled, listWidth));
   }
 
@@ -195,7 +203,8 @@ function renderSessionRow(session, state, layout, selected) {
   const marker = selected ? "›" : " ";
   const timestamp = state.sort === "created" ? session.startedAt ?? session.updatedAt : session.updatedAt ?? session.startedAt;
   const age = formatRelativeAge(timestamp, state.now ?? new Date()).padEnd(layout.age, " ");
-  const agent = String(session.agent ?? "-").padEnd(layout.agent, " ");
+  // Selected rows use plain badge text so inverse styling stays readable.
+  const agent = formatAgentBadge(session.agent, { width: layout.agent, color: !selected });
   const prompt = truncateRight(promptSnippet(session.preview), layout.prompt).padEnd(layout.prompt, " ");
   const turns = formatTurnCount(countUserTurns(state, session)).padStart(layout.turns, " ");
   const parts = [marker, age, agent];
@@ -204,6 +213,32 @@ function renderSessionRow(session, state, layout, selected) {
   }
   parts.push(prompt, turns);
   return parts.join(" ");
+}
+
+/**
+ * @param {string | undefined} agent
+ * @param {{ width?: number, color?: boolean }} [options]
+ */
+export function formatAgentBadge(agent, options = {}) {
+  const width = options.width ?? AGENT_WIDTH;
+  const colorizeBadge = options.color !== false;
+  const known = AGENT_BADGES[agent];
+  const label = (known?.label ?? String(agent ?? "-")).padEnd(width, " ").slice(0, width);
+  if (!colorizeBadge || process.env.NO_COLOR || !known) {
+    return label;
+  }
+  return colorize(known.color, label);
+}
+
+function styleSessionRow(row, { selected, zebra }) {
+  if (selected) {
+    return inverse(row);
+  }
+  // Avoid wrapping colored badges in dim/inverse resets; zebra only when colorless.
+  if (zebra && process.env.NO_COLOR) {
+    return dim(row);
+  }
+  return row;
 }
 
 function renderControls(state) {
@@ -273,7 +308,10 @@ function renderReferenceDetails(session, state, width, budget = Infinity) {
   };
 
   addField("Session:", session.id);
-  addField("Provider:", session.agent);
+  lines.push(formatFrameLine(
+    ` ${"Provider:".padEnd(12, " ")} ${formatAgentBadge(session.agent)}`,
+    width,
+  ));
   addField("Model:", metadata.model);
   addField("Created:", formatDetailTimestamp(session.startedAt));
   addField("Updated:", formatDetailTimestamp(session.updatedAt));

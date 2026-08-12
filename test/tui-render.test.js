@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildConversationExcerpt,
   countUserTurns,
+  formatAgentBadge,
   highlightMatches,
   listColumnLayout,
   PREVIEW_SIDE_MIN_WIDTH,
@@ -432,4 +433,83 @@ test("search field left-truncates long overflowing queries", () => {
   assert.match(field, / ┐$/);
   assert.equal(field.length, 60);
   assert.equal(field.includes(query), false);
+});
+
+test("formatAgentBadge keeps stable width and colors known agents", () => {
+  const previous = process.env.NO_COLOR;
+  delete process.env.NO_COLOR;
+  try {
+    assert.equal(plain(formatAgentBadge("claude")).length, 7);
+    assert.equal(plain(formatAgentBadge("opencode")).trimEnd(), "open");
+    assert.match(formatAgentBadge("cursor"), /^\x1b\[36m/);
+    assert.match(formatAgentBadge("claude"), /^\x1b\[35m/);
+    assert.match(formatAgentBadge("codex"), /^\x1b\[33m/);
+    assert.match(formatAgentBadge("opencode"), /^\x1b\[32m/);
+    assert.equal(formatAgentBadge("claude", { color: false }), "claude ");
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
+});
+
+test("NO_COLOR keeps badge text without ANSI and columns stay aligned", () => {
+  const previous = process.env.NO_COLOR;
+  process.env.NO_COLOR = "1";
+  try {
+    assert.equal(formatAgentBadge("cursor"), "cursor ");
+    const agents = ["claude", "cursor", "codex", "opencode"];
+    const sessions = agents.map((agent, index) => ({
+      ...session,
+      agent,
+      id: `${agent}-${index}`,
+      preview: `${agent} work item`,
+    }));
+    const state = createBrowserState(sessions);
+    state.now = new Date("2026-07-15T12:00:00Z");
+    state.previewPane = false;
+    const layout = listColumnLayout(100);
+    const lines = plain(renderBrowserFrame(state, 100, 30)).split("\n");
+    const expected = { claude: "claude", cursor: "cursor", codex: "codex", opencode: "open" };
+
+    for (const agent of agents) {
+      const row = lines.find((line) => {
+        const cell = line.slice(layout.columns.agent, layout.columns.agent + layout.agent).trimEnd();
+        return cell === expected[agent];
+      });
+      assert.ok(row, `expected row for ${agent}`);
+      assert.equal(
+        row.slice(layout.columns.agent, layout.columns.agent + layout.agent).length,
+        layout.agent,
+      );
+    }
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
+});
+
+test("colored agent badges appear in rows and preview when color is enabled", () => {
+  const previous = process.env.NO_COLOR;
+  delete process.env.NO_COLOR;
+  try {
+    const state = withSearchIndex(createBrowserState([session]));
+    state.now = new Date("2026-07-15T12:00:00Z");
+    // Select a blank second session so the first row is not inverse-only.
+    state.sessions = [
+      session,
+      { ...session, id: "other", agent: "cursor", preview: "other" },
+    ];
+    state.searchIndex = {
+      docs: state.sessions.map(() => ({ turns: [] })),
+    };
+    state.selectedIndex = 1;
+    state.selectedId = "other";
+
+    const raw = renderBrowserFrame(state, 100, 30);
+    assert.match(raw, /\x1b\[35mclaude \x1b\[0m/);
+    assert.match(raw, /Provider:\s+\x1b\[36mcursor \x1b\[0m/);
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
 });
