@@ -137,6 +137,17 @@ function handleNormalInput(state, str, key, visibleSessions) {
     return "render";
   }
 
+  if (isBackspace(str, key)) {
+    if (!state.search) {
+      return "ignore";
+    }
+    state.search = state.search.slice(0, -1);
+    state.selectedIndex = 0;
+    updateSearchResults(state);
+    state.selectedId = getVisibleSessions(state)[0]?.id;
+    return "render";
+  }
+
   if (key?.name === "tab") {
     state.focusedControl = state.focusedControl === "filter" ? "sort" : "filter";
     return "render";
@@ -220,7 +231,7 @@ function handleSearchInput(state, str, key, visibleSessions) {
     return "render";
   }
 
-  if (key?.name === "backspace" || key?.name === "delete") {
+  if (isBackspace(str, key)) {
     state.search = state.search.slice(0, -1);
     state.selectedIndex = 0;
     updateSearchResults(state);
@@ -298,6 +309,13 @@ function getSearchFields(session) {
   ]
     .filter(Boolean)
     .map((value) => String(value).toLowerCase());
+}
+
+function isBackspace(str, key) {
+  return key?.name === "backspace"
+    || key?.name === "delete"
+    || str === "\x7f"
+    || str === "\b";
 }
 
 function isPrintable(str, key) {

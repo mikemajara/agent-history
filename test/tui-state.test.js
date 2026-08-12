@@ -144,6 +144,26 @@ test("printable input starts search without requiring slash", () => {
   assert.equal(getVisibleSessions(state)[0]?.id, "second");
 });
 
+test("backspace edits type-to-search query in normal mode", () => {
+  const state = createBrowserState([
+    { agent: "codex", id: "first", preview: "alpha" },
+    { agent: "codex", id: "second", preview: "bravo" },
+  ]);
+
+  handleBrowserInput(state, "b", {});
+  handleBrowserInput(state, "r", {});
+  assert.equal(state.mode, "normal");
+  assert.equal(state.search, "br");
+
+  assert.equal(handleBrowserInput(state, undefined, { name: "backspace" }), "render");
+  assert.equal(state.search, "b");
+  assert.equal(getVisibleSessions(state)[0]?.id, "second");
+
+  assert.equal(handleBrowserInput(state, "\x7f", {}), "render");
+  assert.equal(state.search, "");
+  assert.equal(handleBrowserInput(state, undefined, { name: "backspace" }), "ignore");
+});
+
 test("cwd scope still applies with dir: token", () => {
   const state = createBrowserState([
     { agent: "codex", id: "in-cwd", cwd: "/tmp/project", preview: "alpha" },
