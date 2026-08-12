@@ -53,6 +53,20 @@ Running `ah` opens a session browser filtered to the current directory (switch t
 
 Rows are a compact table: age, agent, directory, first prompt words, turn count. The preview pane (on by default) shows metadata and as much of the conversation as fits — beside the list on wide terminals, under it when narrow.
 
+### Search syntax
+
+Type to filter. Free text matches prompts, metadata, and agent names. Optional tokens:
+
+| Token | Meaning |
+| --- | --- |
+| `dir:alpha` | Path/project substring (case-insensitive) |
+| `date:today` | Updated today |
+| `date:yesterday` | Updated yesterday |
+| `date:week` | Updated in the last 7 days |
+| `date:<3h` / `date:<2d` | Updated within N hours or days |
+
+Cwd/All still applies first. Example: `dir:agent-history date:today parser`.
+
 Quitting restores your previous terminal scrollback.
 
 ## How it works

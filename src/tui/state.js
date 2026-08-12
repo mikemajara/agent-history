@@ -1,4 +1,5 @@
 import { formatProject } from "../format.js";
+import { matchesQueryTokens, parseQuery } from "../lib/query.js";
 import { search } from "../lib/search.js";
 import { matchesSessionCwd } from "../session-index.js";
 
@@ -20,20 +21,24 @@ export function createBrowserState(sessions, options = {}) {
     indexing: false,
     rankedSessions: null,
     snippetMap: new Map(),
+    now: options.now,
   };
 }
 
 export function getVisibleSessions(state) {
+  const now = state.now ?? new Date();
   const scopedSessions = getScopedSessions(state);
-  let visibleSessions = scopedSessions;
+  const parsed = parseQuery(state.search, now);
+  const tokenFiltered = scopedSessions.filter((session) => matchesQueryTokens(session, parsed, now));
+  let visibleSessions = tokenFiltered;
 
-  if (state.search && state.rankedSessions !== null) {
-    const allowed = new Set(scopedSessions);
+  if (parsed.freeText && state.rankedSessions !== null) {
+    const allowed = new Set(tokenFiltered);
     visibleSessions = state.rankedSessions.filter((session) => allowed.has(session));
-  } else if (state.search) {
+  } else if (parsed.freeText) {
     // Fallback substring filter while index is loading
-    const query = state.search.toLowerCase();
-    visibleSessions = scopedSessions.filter((session) => getSearchFields(session).some((value) => value.includes(query)));
+    const query = parsed.freeText.toLowerCase();
+    visibleSessions = tokenFiltered.filter((session) => getSearchFields(session).some((value) => value.includes(query)));
   }
 
   return sortSessions(visibleSessions, state.sort);
@@ -46,13 +51,14 @@ export function setSearchIndex(state, index) {
 }
 
 function updateSearchResults(state) {
-  if (!state.search || !state.searchIndex) {
+  const parsed = parseQuery(state.search, state.now ?? new Date());
+  if (!parsed.freeText || !state.searchIndex) {
     state.rankedSessions = null;
     state.snippetMap = new Map();
     return;
   }
 
-  const results = search(state.searchIndex, state.search, state.sessions);
+  const results = search(state.searchIndex, parsed.freeText, state.sessions);
   state.rankedSessions = results.map((r) => r.session);
   state.snippetMap = new Map(
     results.map((r) => [r.session.id, r.snippet]).filter(([, v]) => v),
@@ -154,7 +160,7 @@ function handleNormalInput(state, str, key, visibleSessions) {
 
   if (str === "?") {
     state.message =
-      "Controls: j/k/arrows navigate, Ctrl+p toggle preview pane, Enter resume, Ctrl+n new in directory, / search, Esc clear+leave search, Ctrl+u clear, q quit | Rows: age · agent · directory · prompt · turns | Search matches all conversation text";
+      "Controls: j/k/arrows navigate, Ctrl+p toggle preview pane, Enter resume, Ctrl+n new in directory, / search, Esc clear+leave search, Ctrl+u clear, q quit | Rows: age · agent · directory · prompt · turns | Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd";
     return "render";
   }
 

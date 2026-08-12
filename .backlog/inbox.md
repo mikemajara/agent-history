@@ -7,7 +7,7 @@ Raw ideas not yet promoted to GitHub Issues.
 Promoted to GitHub Issues:
 - #18 Highlight the focused filter/sort control when Tabbing — **closed** (inverse highlight on focused control)
 - #1 Decide safe handoff for selected session command — **closed** (no clipboard; Enter resume; open-new → #17)
-- #2 Always-on TUI preview pane (side/bottom) — refined, ready
+- #2 Always-on TUI preview pane (side/bottom) — **closed** (always-on pane + headed table)
 - #3 Cache session index for large histories
 - #4 Add no-preview mode for sensitive sessions
 - #5 Harden provider parsers for malformed JSONL
@@ -15,7 +15,7 @@ Promoted to GitHub Issues:
 - #12 Color-code agent badges in TUI session rows
 - #13 Add directory column to compact TUI rows
 - #14 Search-first TUI input chrome with teaching placeholder
-- #15 In-query `dir:`/`date:` filters; keep search generic — refined, ready
+- #15 In-query `dir:`/`date:` filters; keep search generic — **closed** (dir/date tokens + docs/tests)
 - #16 Keycap-styled TUI footer shortcuts
 - #17 Open new agent session from TUI — **closed** (already implemented via `Ctrl+n`)
 

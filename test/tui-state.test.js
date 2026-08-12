@@ -143,3 +143,90 @@ test("printable input starts search without requiring slash", () => {
   assert.equal(state.search, "b");
   assert.equal(getVisibleSessions(state)[0]?.id, "second");
 });
+
+test("cwd scope still applies with dir: token", () => {
+  const state = createBrowserState([
+    { agent: "codex", id: "in-cwd", cwd: "/tmp/project", preview: "alpha" },
+    { agent: "cursor", id: "other", cwd: "/tmp/other-project", preview: "alpha" },
+  ], { currentCwd: "/tmp/project" });
+
+  state.search = "dir:project";
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["in-cwd"]);
+});
+
+test("cwd scope still applies with date:today", () => {
+  const now = new Date("2026-08-12T15:00:00");
+  const state = createBrowserState([
+    {
+      agent: "codex",
+      id: "today-cwd",
+      cwd: "/tmp/project",
+      updatedAt: new Date("2026-08-12T08:00:00"),
+    },
+    {
+      agent: "cursor",
+      id: "today-other",
+      cwd: "/tmp/other",
+      updatedAt: new Date("2026-08-12T09:00:00"),
+    },
+    {
+      agent: "codex",
+      id: "old-cwd",
+      cwd: "/tmp/project",
+      updatedAt: new Date("2026-08-10T08:00:00"),
+    },
+  ], { currentCwd: "/tmp/project", now });
+
+  state.search = "date:today";
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["today-cwd"]);
+});
+
+test("free text works with tokens and ignores invalid date tokens", () => {
+  const now = new Date("2026-08-12T15:00:00");
+  const state = createBrowserState([
+    {
+      agent: "codex",
+      id: "match",
+      cwd: "/tmp/alpha",
+      preview: "build the parser",
+      updatedAt: new Date("2026-08-12T08:00:00"),
+    },
+    {
+      agent: "cursor",
+      id: "wrong-dir",
+      cwd: "/tmp/beta",
+      preview: "build the parser",
+      updatedAt: new Date("2026-08-12T08:00:00"),
+    },
+    {
+      agent: "codex",
+      id: "wrong-text",
+      cwd: "/tmp/alpha",
+      preview: "unrelated work",
+      updatedAt: new Date("2026-08-12T08:00:00"),
+    },
+  ], { now, initialScope: "all" });
+
+  state.search = "dir:alpha date:bogus parser";
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["match"]);
+});
+
+test("free-text queries match agent names without agent: syntax", () => {
+  const state = createBrowserState([
+    { agent: "codex", id: "a", preview: "one" },
+    { agent: "cursor", id: "b", preview: "two" },
+  ], { initialScope: "all" });
+
+  state.search = "cursor";
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["b"]);
+});
+
+test("token-only queries filter without requiring free text", () => {
+  const state = createBrowserState([
+    { agent: "codex", id: "a", cwd: "/tmp/alpha" },
+    { agent: "cursor", id: "b", cwd: "/tmp/beta" },
+  ], { initialScope: "all" });
+
+  state.search = "dir:beta";
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["b"]);
+});

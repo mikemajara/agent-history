@@ -31,6 +31,7 @@ Interactive controls:
   Enter resume                Ctrl+n new in directory
   Esc exit/clear              Ctrl+C exit
 
+Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd
 Compact rows show: age · agent · directory · prompt · turns
 Preview pane (on by default): side split on wide terminals, stacked when narrow`;
 
