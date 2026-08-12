@@ -12,7 +12,7 @@ import {
   renderSearchField,
   SEARCH_PLACEHOLDER,
 } from "../src/tui/render.js";
-import { createBrowserState } from "../src/tui/state.js";
+import { createBrowserState, handleBrowserInput } from "../src/tui/state.js";
 
 const session = {
   agent: "claude",
@@ -110,8 +110,8 @@ test("100x30 frame stacks the preview pane and uses the indexed list columns", (
   assert.match(frame, /you: A richer prompt with context/);
   assert.match(frame, /ai:\s+I will inspect the session details/);
   assert.match(frame, /you: And another question/);
-  assert.match(lines.at(-2), /enter resume   ctrl\+n new   esc exit   ctrl\+c exit   tab focus filter\/sort/);
-  assert.match(lines.at(-1), /ctrl\+p preview   ↑\/↓ browse.*1 \/ 1 · 100%/);
+  assert.match(lines.at(-2), /\[enter\] resume.*\[ctrl\+n\] new.*\[esc\] exit.*\[ctrl\+c\] exit.*\[tab\] focus.*\[←\/→\] option/);
+  assert.match(lines.at(-1), /\[ctrl\+p\] preview.*\[↑\/↓\] browse.*1 \/ 1 · 100%/);
   assert.ok(lines.every((line) => line.length <= 100));
 });
 
@@ -188,9 +188,62 @@ test("60x16 frame drops directory and keeps headers within the terminal", () => 
   );
   assert.equal(row.slice(cols.turns, cols.turns + layout.turns).trim(), "-");
   assert.match(lines.join("\n"), /Session:\s+11111111-2222-4333-8444-555555555555/);
-  assert.match(lines.at(-2), /enter resume   ctrl\+n new   esc exit   tab focus/);
-  assert.match(lines.at(-1), /ctrl\+p preview   ↑\/↓ browse/);
+  assert.match(lines.at(-2), /\[enter\] resume.*\[ctrl\+n\] new.*\[esc\] exit.*\[tab\] focus/);
+  assert.match(lines.at(-1), /\[ctrl\+p\] preview.*\[↑\/↓\] browse/);
   assert.ok(lines.every((line) => line.length <= 60));
+});
+
+test("footer keycaps emphasize Enter and fit wide/narrow terminals", () => {
+  const previous = process.env.NO_COLOR;
+  delete process.env.NO_COLOR;
+  try {
+    const state = withSearchIndex(createBrowserState([session]));
+    state.now = new Date("2026-07-15T12:00:00Z");
+
+    for (const width of [100, 60]) {
+      const raw = renderBrowserFrame(state, width, 30);
+      const lines = plain(raw).split("\n");
+      assert.ok(lines.every((line) => line.length <= width), `footer must fit width ${width}`);
+      assert.match(lines.at(-2), /\[enter\] resume/);
+      assert.match(lines.at(-2), /\[ctrl\+n\] new/);
+      assert.match(lines.at(-2), /\[esc\] exit/);
+      assert.match(lines.at(-1), /\[ctrl\+p\]/);
+      assert.match(lines.at(-1), /1 \/ 1 · 100%/);
+
+      // Primary Enter uses accent; secondary keycaps stay muted/dim.
+      assert.match(raw, /\x1b\[7m\[enter\]\x1b\[0m/);
+      assert.match(raw, /\x1b\[2m\[esc\]\x1b\[0m/);
+      assert.match(raw, /\x1b\[2m\[ctrl\+n\]\x1b\[0m/);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
+});
+
+test("footer keycaps stay plain under NO_COLOR", () => {
+  const previous = process.env.NO_COLOR;
+  process.env.NO_COLOR = "1";
+  try {
+    const state = createBrowserState([session]);
+    state.now = new Date("2026-07-15T12:00:00Z");
+    const raw = renderBrowserFrame(state, 100, 30);
+    assert.equal(raw.includes("\x1b["), false);
+    const lines = raw.split("\n");
+    assert.match(lines.at(-2), /\[enter\] resume.*\[ctrl\+n\] new.*\[esc\] exit/);
+    assert.match(lines.at(-1), /\[ctrl\+p\].*\[↑\/↓\] browse/);
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
+});
+
+test("help text still documents Enter resume and Ctrl+n", () => {
+  const state = createBrowserState([session]);
+  handleBrowserInput(state, "?", {});
+  assert.match(state.message, /Enter resume/);
+  assert.match(state.message, /Ctrl\+n new in directory/);
+  assert.match(state.message, /Ctrl\+p toggle preview pane/);
 });
 
 test("wide terminals render a side preview pane beside the list", () => {
@@ -209,7 +262,7 @@ test("wide terminals render a side preview pane beside the list", () => {
   assert.match(frame, /Session:\s+11111111/);
   assert.match(frame, /Model:\s+claude-opus-4/);
   assert.match(frame, /you: A richer prompt with context/);
-  assert.match(lines.at(-1), /ctrl\+p preview/);
+  assert.match(lines.at(-1), /\[ctrl\+p\] preview/);
   assert.ok(lines.every((line) => line.length <= width));
 });
 
@@ -230,7 +283,7 @@ test("toggling the preview pane off restores a full-width list without details",
   );
   assert.equal(frame.includes("Session:"), false);
   assert.equal(frame.includes("Conversation:"), false);
-  assert.match(lines.at(-1), /ctrl\+p preview/);
+  assert.match(lines.at(-1), /\[ctrl\+p\] preview/);
 });
 
 test("noPreview hides conversation text while keeping metadata in the pane", () => {

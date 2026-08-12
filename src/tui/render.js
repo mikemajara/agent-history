@@ -121,19 +121,55 @@ export function renderBrowserFrame(state, width, height) {
   }
 
   const status = `${visibleSessions.length === 0 ? 0 : state.selectedIndex + 1} / ${visibleSessions.length} · ${scrollPercent(state.selectedIndex, visibleSessions.length)}%`;
-  const previewHint = state.noPreview ? "no-preview on" : "ctrl+p preview";
+  const previewHint = state.noPreview ? "no-preview on" : `${keycap("ctrl+p")} preview`;
   const footer = [
     "─".repeat(width),
-    narrow
-      ? "enter resume   ctrl+n new   esc exit   tab focus   ←/→ option"
-      : "enter resume   ctrl+n new   esc exit   ctrl+c exit   tab focus filter/sort   ←/→ change option",
-    alignFooter(`${previewHint}   ↑/↓ browse`, status, width),
+    renderFooterActions(narrow),
+    alignFooter(`${previewHint}  ${keycap("↑/↓")} browse`, status, width),
   ];
 
   return [...headerLines, ...bodyLines, ...footer]
     .slice(0, height)
     .map((line) => formatFrameLine(line, width))
     .join("\n");
+}
+
+/**
+ * @param {boolean} narrow
+ * @returns {string}
+ */
+export function renderFooterActions(narrow) {
+  const enter = `${keycap("enter", { primary: true })} resume`;
+  if (narrow) {
+    return [
+      enter,
+      `${keycap("ctrl+n")} new`,
+      `${keycap("esc")} exit`,
+      `${keycap("tab")} focus`,
+    ].join("  ");
+  }
+
+  return [
+    enter,
+    `${keycap("ctrl+n")} new`,
+    `${keycap("esc")} exit`,
+    `${keycap("ctrl+c")} exit`,
+    `${keycap("tab")} focus`,
+    `${keycap("←/→")} option`,
+  ].join("  ");
+}
+
+/**
+ * @param {string} label
+ * @param {{ primary?: boolean }} [options]
+ * @returns {string}
+ */
+export function keycap(label, options = {}) {
+  const body = `[${label}]`;
+  if (process.env.NO_COLOR) {
+    return body;
+  }
+  return options.primary ? inverse(body) : dim(body);
 }
 
 /**
@@ -491,7 +527,9 @@ function scrollPercent(index, count) {
 }
 
 function alignFooter(left, right, width) {
-  const gap = Math.max(width - left.length - right.length, 1);
+  const leftWidth = visibleLength(left);
+  const rightWidth = visibleLength(right);
+  const gap = Math.max(width - leftWidth - rightWidth, 1);
   return `${left}${" ".repeat(gap)}${right}`;
 }
 
