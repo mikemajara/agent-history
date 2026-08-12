@@ -22,8 +22,12 @@ Also available as: ah
 Options:
   --last                      Launch the newest session for the current directory
   --new                       With --last, start a new session instead of resuming
+  --refresh                   Rebuild the local session cache before listing/browsing
   -h, --help                  Show this help
   -v, --version               Show version
+
+Commands:
+  cache clear                 Delete ~/.cache/agent-history/sessions-v1.json
 
 Interactive controls:
   tab focus filter/sort       left/right change Cwd/All or Updated/Created
@@ -34,10 +38,17 @@ Interactive controls:
 Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd
 Type into the bordered `/` search field; empty placeholder lists what you can search.
 Compact rows show: age · agent · directory · prompt · turns
-Preview pane (on by default): side split on wide terminals, stacked when narrow`;
+Preview pane (on by default): side split on wide terminals, stacked when narrow
+
+Cache:
+  Session metadata is cached at ~/.cache/agent-history/sessions-v1.json
+  Invalidates when provider transcript files change (path/mtime/size fingerprint)
+  Override location with AGENT_HISTORY_CACHE_DIR; force rebuild with --refresh`;
 
 export async function main(argv, io, options = {}) {
-  const [command, arg] = argv;
+  const refresh = argv.includes("--refresh") || options.refresh === true;
+  const args = argv.filter((arg) => arg !== "--refresh");
+  const [command, arg] = args;
 
   if (command === "--help" || command === "-h" || command === "help") {
     io.stdout.write(`${HELP_TEXT}\n`);
@@ -49,8 +60,21 @@ export async function main(argv, io, options = {}) {
     return;
   }
 
-  if (argv.includes("--last") || argv.includes("--new")) {
-    if (argv.includes("--new") && !argv.includes("--last")) {
+  if (command === "cache") {
+    if (arg === "clear") {
+      const { clearSessionCache, getCachePath } = await import("./lib/session-cache.js");
+      const cachePath = getCachePath(options);
+      await clearSessionCache(cachePath);
+      io.stdout.write(`Cleared session cache: ${cachePath}\n`);
+      return;
+    }
+    io.stderr.write("Usage: agent-history cache clear\n");
+    process.exitCode = 1;
+    return;
+  }
+
+  if (args.includes("--last") || args.includes("--new")) {
+    if (args.includes("--new") && !args.includes("--last")) {
       io.stderr.write("`--new` requires `--last` (example: agent-history --last --new).\n");
       process.exitCode = 1;
       return;
@@ -58,14 +82,15 @@ export async function main(argv, io, options = {}) {
 
     const exitCode = await resumeLastSession(io, {
       ...options,
-      mode: argv.includes("--new") ? "new" : "resume",
+      refresh,
+      mode: args.includes("--new") ? "new" : "resume",
     });
     process.exitCode = exitCode;
     return;
   }
 
   if (!command) {
-    const sessions = await getAllSessions();
+    const sessions = await getAllSessions({ ...options, refresh });
     const exitCode = await runInteractiveBrowser(sessions, io, {
       currentCwd: await resolveTargetCwd(),
     });
@@ -74,13 +99,13 @@ export async function main(argv, io, options = {}) {
   }
 
   if (command === "ls") {
-    const sessions = await getSessions(arg);
+    const sessions = await getSessions(arg, { ...options, refresh });
     io.stdout.write(`${formatSessionTable(sessions)}\n`);
     return;
   }
 
   if (command === "show") {
-    const sessions = await getAllSessions();
+    const sessions = await getAllSessions({ ...options, refresh });
     const session = findSession(sessions, arg);
     if (!session) {
       io.stderr.write(`Session not found: ${arg ?? ""}\n`);
@@ -93,7 +118,7 @@ export async function main(argv, io, options = {}) {
   }
 
   if (command === "resume") {
-    const sessions = await getAllSessions();
+    const sessions = await getAllSessions({ ...options, refresh });
     const session = findSession(sessions, arg);
     if (!session?.resumeCommand) {
       io.stderr.write(`Session not found: ${arg ?? ""}\n`);
@@ -105,7 +130,7 @@ export async function main(argv, io, options = {}) {
     return;
   }
 
-  const sessions = await getAllSessions();
+  const sessions = await getAllSessions({ ...options, refresh });
   const exitCode = await runInteractiveBrowser(sessions, io, {
     currentCwd: await resolveTargetCwd(command),
   });
@@ -113,7 +138,7 @@ export async function main(argv, io, options = {}) {
 }
 
 export async function resumeLastSession(io, options = {}) {
-  const loadSessions = options.getSessionsForCwd ?? getSessionsForCwd;
+  const loadSessions = options.getSessionsForCwd ?? ((cwd) => getSessionsForCwd(cwd, options));
   const launch = options.launchSession ?? launchSession;
   const resolveCwd = options.resolveTargetCwd ?? resolveTargetCwd;
   const mode = options.mode === "new" ? "new" : "resume";
@@ -135,8 +160,8 @@ export async function resumeLastSession(io, options = {}) {
   return launch({ ...session, cwd }, io, { mode });
 }
 
-async function getSessions(pathArg) {
-  return pathArg ? getSessionsForCwd(pathArg) : getAllSessions();
+async function getSessions(pathArg, options = {}) {
+  return pathArg ? getSessionsForCwd(pathArg, options) : getAllSessions(options);
 }
 
 function findSession(sessions, inputId) {

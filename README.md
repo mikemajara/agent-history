@@ -74,3 +74,13 @@ Quitting restores your previous terminal scrollback.
 ## How it works
 
 `ah` reads local session files only. Listing and search never shell out to agent CLIs; those run only when you resume or start a session.
+
+### Session cache
+
+Parsed session metadata is cached at `~/.cache/agent-history/sessions-v1.json` so repeated `ah` / `ah ls` launches skip a full transcript rescan when nothing changed.
+
+- **Invalidation:** fingerprint of provider source files (path + mtime + size) across Cursor, Claude, Codex, and OpenCode roots.
+- **Rebuild:** `ah --refresh` or `ah ls --refresh` forces a rescan and rewrite; `ah cache clear` deletes the cache file.
+- **Override:** set `AGENT_HISTORY_CACHE_DIR` to relocate the cache directory.
+
+The interactive search index (conversation text) still builds in the background after open; it is not part of this metadata cache.

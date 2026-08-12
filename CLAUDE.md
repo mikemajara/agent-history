@@ -128,4 +128,4 @@ agent-history show ID  # detailed metadata
 agent-history resume ID
 ```
 
-Add caching only after profiling or once Codex transcript scans feel slow. A likely cache location is `~/.cache/agent-history/index.json`.
+Add caching only after profiling or once Codex transcript scans feel slow. Cache location: `~/.cache/agent-history/sessions-v1.json` (fingerprint invalidation on source path/mtime/size; `--refresh` / `cache clear` to rebuild). Search BM25 index remains in-memory per browser launch.

@@ -3,28 +3,62 @@ import { discoverCodexSessions } from "./providers/codex.js";
 import { discoverAllCursorSessions, discoverCursorSessions } from "./providers/cursor.js";
 import { discoverOpenCodeSessions } from "./providers/opencode.js";
 import { encodeClaudeProjectSlug, encodeCursorProjectSlug, resolveTargetCwd } from "./lib/path-utils.js";
+import {
+  clearSessionCache,
+  collectSourceFingerprint,
+  getCachePath,
+  readSessionCache,
+  writeSessionCache,
+} from "./lib/session-cache.js";
 
-export async function getSessionsForCwd(inputCwd) {
+/**
+ * @param {string | undefined} inputCwd
+ * @param {{ refresh?: boolean, cacheDir?: string, cache?: boolean }} [options]
+ */
+export async function getSessionsForCwd(inputCwd, options = {}) {
   const targetCwd = await resolveTargetCwd(inputCwd);
-  const [cursor, claude, codex, opencode] = await Promise.all([
-    discoverCursorSessions(targetCwd),
-    discoverClaudeSessions(targetCwd),
-    discoverCodexSessions(targetCwd),
-    discoverOpenCodeSessions(targetCwd),
-  ]);
+  if (options.cache === false) {
+    return discoverSessionsForCwd(targetCwd);
+  }
 
-  return [...cursor, ...claude, ...codex, ...opencode].sort(compareSessionsDesc);
+  const sessions = await getAllSessions(options);
+  return sessions.filter((session) => matchesSessionCwd(session, targetCwd)).sort(compareSessionsDesc);
 }
 
-export async function getAllSessions() {
-  const [cursor, claude, codex, opencode] = await Promise.all([
-    discoverAllCursorSessions(),
-    discoverAllClaudeSessions(),
-    discoverCodexSessions(),
-    discoverOpenCodeSessions(),
-  ]);
+/**
+ * @param {{ refresh?: boolean, cacheDir?: string, cache?: boolean }} [options]
+ */
+export async function getAllSessions(options = {}) {
+  if (options.cache === false) {
+    return discoverAllSessionsUncached();
+  }
 
-  return [...cursor, ...claude, ...codex, ...opencode].sort(compareSessionsDesc);
+  const cachePath = getCachePath(options);
+  const fingerprint = await collectSourceFingerprint();
+
+  if (!options.refresh) {
+    const cached = await readSessionCache(cachePath, fingerprint);
+    if (cached) {
+      return cached.sort(compareSessionsDesc);
+    }
+  }
+
+  const sessions = await discoverAllSessionsUncached();
+  try {
+    await writeSessionCache(cachePath, sessions, fingerprint);
+  } catch {
+    // Cache write failures must not break listing/browsing.
+  }
+  return sessions;
+}
+
+/**
+ * Force-clear the on-disk session cache.
+ * @param {{ cacheDir?: string }} [options]
+ */
+export async function refreshSessionCache(options = {}) {
+  await clearSessionCache(getCachePath(options));
+  return getAllSessions({ ...options, refresh: true });
 }
 
 export function matchesSessionCwd(session, targetCwd) {
@@ -50,6 +84,28 @@ export function matchesSessionCwd(session, targetCwd) {
   }
 
   return false;
+}
+
+async function discoverAllSessionsUncached() {
+  const [cursor, claude, codex, opencode] = await Promise.all([
+    discoverAllCursorSessions(),
+    discoverAllClaudeSessions(),
+    discoverCodexSessions(),
+    discoverOpenCodeSessions(),
+  ]);
+
+  return [...cursor, ...claude, ...codex, ...opencode].sort(compareSessionsDesc);
+}
+
+async function discoverSessionsForCwd(targetCwd) {
+  const [cursor, claude, codex, opencode] = await Promise.all([
+    discoverCursorSessions(targetCwd),
+    discoverClaudeSessions(targetCwd),
+    discoverCodexSessions(targetCwd),
+    discoverOpenCodeSessions(targetCwd),
+  ]);
+
+  return [...cursor, ...claude, ...codex, ...opencode].sort(compareSessionsDesc);
 }
 
 function compareSessionsDesc(left, right) {
