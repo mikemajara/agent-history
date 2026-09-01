@@ -1,7 +1,8 @@
 import { formatProject, formatResumeCommand } from "../format.js";
+import { pinMarker } from "../lib/icons.js";
 import { formatMarkdownLines } from "../lib/markdown.js";
 import { freeTextTerms } from "../lib/query.js";
-import { clampSelection, getVisibleSessions } from "./state.js";
+import { clampSelection, countPendingInScope, getVisibleSessions, leadStatus } from "./state.js";
 
 /** Terminals at or above this width use a side preview; narrower ones stack it. */
 export const PREVIEW_SIDE_MIN_WIDTH = 116;
@@ -11,6 +12,7 @@ export const SEARCH_PLACEHOLDER = "Search titles, messages, paths · dir: · dat
 const PROMPT_WORD_LIMIT = 6;
 const AGE_WIDTH = 9;
 const AGENT_WIDTH = 7;
+const FLAG_WIDTH = 9;
 const TURNS_WIDTH = 5;
 
 /** Stable short labels + ANSI colors for known agents. */
@@ -120,12 +122,20 @@ export function renderBrowserFrame(state, width, height) {
     bodyLines.push(...listLines.slice(0, listBudget));
   }
 
-  const status = `${visibleSessions.length === 0 ? 0 : state.selectedIndex + 1} / ${visibleSessions.length} · ${scrollPercent(state.selectedIndex, visibleSessions.length)}%`;
+  const pending = countPendingInScope(state);
+  const statusParts = [
+    pending > 0 ? `${pending} ${leadStatus(state)}` : null,
+    `${visibleSessions.length === 0 ? 0 : state.selectedIndex + 1} / ${visibleSessions.length} · ${scrollPercent(state.selectedIndex, visibleSessions.length)}%`,
+  ].filter(Boolean);
+  const status = statusParts.join(" · ");
   const previewHint = state.noPreview ? "no-preview on" : `${keycap("ctrl+p")} preview`;
+  const browseHint = narrow
+    ? `${previewHint}  ${keycap("↑/↓")} browse`
+    : `${keycap("ctrl+b")} pin  ${keycap("ctrl+t")} status  ${previewHint}  ${keycap("↑/↓")} browse`;
   const footer = [
     "─".repeat(width),
     renderFooterActions(narrow),
-    alignFooter(`${previewHint}  ${keycap("↑/↓")} browse`, status, width),
+    alignFooter(browseHint, status, width),
   ];
 
   return [...headerLines, ...bodyLines, ...footer]
@@ -173,23 +183,24 @@ export function keycap(label, options = {}) {
 }
 
 /**
- * Broader → specific: Age · Agent · Directory · Prompt · Turns
+ * Broader → specific: Age · Agent · Flag · Directory · Prompt · Turns
  *
  * @param {number} width
  * @returns {{
  *   age: number,
  *   agent: number,
+ *   flag: number,
  *   prompt: number,
  *   turns: number,
  *   directory: number,
  *   showDirectory: boolean,
- *   columns: { age: number, agent: number, prompt: number, turns: number, directory: number }
+ *   columns: { age: number, agent: number, flag: number, prompt: number, turns: number, directory: number }
  * }}
  */
 export function listColumnLayout(width) {
   const showDirectory = width >= 80;
-  // marker(1) + sp + age + sp + agent + sp = 20; trailing turns (+ leading sp) = 6
-  const prefixWidth = 1 + 1 + AGE_WIDTH + 1 + AGENT_WIDTH + 1;
+  // marker(1) + sp + age + sp + agent + sp + flag + sp
+  const prefixWidth = 1 + 1 + AGE_WIDTH + 1 + AGENT_WIDTH + 1 + FLAG_WIDTH + 1;
   const turnsTail = 1 + TURNS_WIDTH;
   const flex = Math.max(8, width - prefixWidth - turnsTail);
 
@@ -202,12 +213,14 @@ export function listColumnLayout(width) {
     promptWidth = Math.max(8, flex - 1 - directoryWidth);
   }
 
+  const flagStart = 2 + AGE_WIDTH + 1 + AGENT_WIDTH + 1;
   const directoryStart = prefixWidth;
   const promptStart = showDirectory ? directoryStart + directoryWidth + 1 : prefixWidth;
   const turnsStart = promptStart + promptWidth + 1;
   const columns = {
     age: 2,
     agent: 2 + AGE_WIDTH + 1,
+    flag: flagStart,
     directory: showDirectory ? directoryStart : -1,
     prompt: promptStart,
     turns: turnsStart,
@@ -216,6 +229,7 @@ export function listColumnLayout(width) {
   return {
     age: AGE_WIDTH,
     agent: AGENT_WIDTH,
+    flag: FLAG_WIDTH,
     prompt: promptWidth,
     turns: TURNS_WIDTH,
     directory: directoryWidth,
@@ -229,6 +243,7 @@ function renderColumnHeader(layout) {
     " ",
     "AGE".padEnd(layout.age, " "),
     "AGENT".padEnd(layout.agent, " "),
+    "META".padEnd(layout.flag, " "),
   ];
   if (layout.showDirectory) {
     parts.push("DIRECTORY".padEnd(layout.directory, " ").slice(0, layout.directory));
@@ -244,15 +259,23 @@ function renderSessionRow(session, state, layout, selected) {
   const age = formatRelativeAge(timestamp, state.now ?? new Date()).padEnd(layout.age, " ");
   // Selected rows use plain badge text so inverse styling stays readable.
   const agent = formatAgentBadge(session.agent, { width: layout.agent, color: !selected });
+  const flag = formatFlag(session).padEnd(layout.flag, " ");
   const promptText = state.noPreview ? "-" : promptSnippet(session.preview);
   const prompt = truncateRight(promptText, layout.prompt).padEnd(layout.prompt, " ");
   const turns = formatTurnCount(countUserTurns(state, session)).padStart(layout.turns, " ");
-  const parts = [marker, age, agent];
+  const parts = [marker, age, agent, flag];
   if (layout.showDirectory) {
     parts.push(truncateLeft(formatProject(session), layout.directory).padEnd(layout.directory, " "));
   }
   parts.push(prompt, turns);
   return parts.join(" ");
+}
+
+export function formatFlag(session) {
+  const pin = session?.pinned ? pinMarker() : " ";
+  const status = typeof session?.status === "string" && session.status ? session.status : "";
+  const text = status ? `${pin} ${status}` : pin.trim() ? pin : "";
+  return text.padEnd(FLAG_WIDTH, " ").slice(0, FLAG_WIDTH);
 }
 
 /**
@@ -295,18 +318,20 @@ function renderControls(state) {
  * Dedicated search field with `/` prompt, teaching placeholder, and end cursor.
  * Long queries left-truncate so the editable end (and cursor) stay visible.
  *
- * @param {{ search?: string }} state
+ * @param {{ search?: string, mode?: string }} state
  * @param {number} width
  */
 export function renderSearchField(state, width) {
   const open = "┌ ";
   const close = " ┐";
   const prompt = "/ ";
-  const cursor = inverse(" ");
+  const searching = state.mode === "search";
+  const cursor = searching ? inverse(" ") : "";
+  const cursorCells = searching ? 1 : 0;
   const frameChrome = open.length + prompt.length + close.length;
   const contentWidth = Math.max(width - frameChrome, 2);
   const query = String(state.search ?? "");
-  const textWidth = Math.max(contentWidth - 1, 1); // reserve one cell for the cursor
+  const textWidth = Math.max(contentWidth - cursorCells, 1);
 
   let content;
   if (query) {
@@ -352,6 +377,8 @@ function renderReferenceDetails(session, state, width, budget = Infinity) {
     ` ${"Provider:".padEnd(12, " ")} ${formatAgentBadge(session.agent)}`,
     width,
   ));
+  addField("Pinned:", session.pinned ? "yes" : "no");
+  addField("Status:", session.status ?? "-");
   addField("Model:", metadata.model);
   addField("Created:", formatDetailTimestamp(session.startedAt));
   addField("Updated:", formatDetailTimestamp(session.updatedAt));

@@ -48,6 +48,7 @@ Expected controls:
 - `Enter` resumes the selected session.
 - `Ctrl+n` starts a new session with that agent in the session's directory.
 - `Ctrl+p` toggles the always-on preview pane (on by default; side split when wide, stacked when narrow).
+- `Ctrl+b` pins or unpins the selected session; `Ctrl+t` cycles status through the configured string list (default none → pending → parked).
 - `/` searches across indexed local metadata.
 - `q` exits.
 - `?` shows help.
@@ -85,6 +86,8 @@ type AgentSession = {
   transcriptPath?: string;
   resumeCommand?: string[];
   metadata?: Record<string, unknown>;
+  pinned?: boolean;
+  status?: string;
 };
 ```
 
@@ -127,6 +130,8 @@ agent-history          # interactive browser
 agent-history ls       # scriptable table
 agent-history show ID  # detailed metadata
 agent-history resume ID
+agent-history pin ID
+agent-history status ID [pending|parked|--clear]
 ```
 
-Add caching only after profiling or once Codex transcript scans feel slow. Cache location: `~/.cache/agent-history/sessions-v1.json` (fingerprint invalidation on source path/mtime/size; `--refresh` / `cache clear` to rebuild). Search BM25 index remains in-memory per browser launch.
+Add caching only after profiling or once Codex transcript scans feel slow. Cache location: `~/.cache/agent-history/sessions-v1.json` (fingerprint invalidation on source path/mtime/size; `--refresh` / `cache clear` to rebuild). Search BM25 index remains in-memory per browser launch. Pin/status live in a separate overlay at `~/.local/share/agent-history/annotations-v1.json` (`AGENT_HISTORY_DATA_DIR`); cache refresh/clear must not delete it. Status names are a string array defaulting to `["pending", "parked"]`; override in `~/.config/agent-history/config.json` (`AGENT_HISTORY_CONFIG`). The first entry floats and is counted in the footer.

@@ -25,6 +25,8 @@ test("serializeSessions and reviveSessions round-trip dates", () => {
       cwd: "/tmp/project",
       preview: "hello",
       resumeCommand: ["codex", "resume", "abc"],
+      pinned: true,
+      status: "pending",
       metadata: { branch: "main" },
     },
   ]));
@@ -32,6 +34,8 @@ test("serializeSessions and reviveSessions round-trip dates", () => {
   assert.equal(revived.startedAt?.toISOString(), startedAt.toISOString());
   assert.equal(revived.updatedAt?.toISOString(), updatedAt.toISOString());
   assert.equal(revived.agent, "codex");
+  assert.equal(revived.pinned, undefined);
+  assert.equal(revived.status, undefined);
   assert.deepEqual(revived.resumeCommand, ["codex", "resume", "abc"]);
 });
 

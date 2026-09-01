@@ -1,4 +1,5 @@
 import { formatProject } from "../format.js";
+import { annotationRank, DEFAULT_STATUSES, nextStatus } from "../lib/annotations.js";
 import { matchesQueryTokens, parseQuery } from "../lib/query.js";
 import { search } from "../lib/search.js";
 import { matchesSessionCwd } from "../session-index.js";
@@ -22,6 +23,9 @@ export function createBrowserState(sessions, options = {}) {
     rankedSessions: null,
     snippetMap: new Map(),
     now: options.now,
+    statuses: Array.isArray(options.statuses) && options.statuses.length
+      ? options.statuses
+      : undefined,
   };
 }
 
@@ -41,7 +45,28 @@ export function getVisibleSessions(state) {
     visibleSessions = tokenFiltered.filter((session) => getSearchFields(session).some((value) => value.includes(query)));
   }
 
-  return sortSessions(visibleSessions, state.sort);
+  return sortSessions(visibleSessions, state.sort, statusesOf(state));
+}
+
+export function getScopedSessions(state) {
+  if (state.scope !== "cwd" || !state.currentCwd) {
+    return state.sessions;
+  }
+
+  return state.sessions.filter((session) => matchesSessionCwd(session, state.currentCwd));
+}
+
+export function leadStatus(state) {
+  return statusesOf(state)[0];
+}
+
+function statusesOf(state) {
+  return state.statuses?.length ? state.statuses : DEFAULT_STATUSES;
+}
+
+export function countPendingInScope(state) {
+  const lead = statusesOf(state)[0];
+  return getScopedSessions(state).filter((session) => session.status === lead).length;
 }
 
 export function setSearchIndex(state, index) {
@@ -65,15 +90,7 @@ function updateSearchResults(state) {
   );
 }
 
-function getScopedSessions(state) {
-  if (state.scope !== "cwd" || !state.currentCwd) {
-    return state.sessions;
-  }
-
-  return state.sessions.filter((session) => matchesSessionCwd(session, state.currentCwd));
-}
-
-function sortSessions(sessions, sort) {
+function sortSessions(sessions, sort, statuses = DEFAULT_STATUSES) {
   const valueFor = (session) => {
     if (sort === "created") {
       return session.startedAt?.getTime() ?? session.updatedAt?.getTime() ?? 0;
@@ -82,7 +99,11 @@ function sortSessions(sessions, sort) {
     return session.updatedAt?.getTime() ?? session.startedAt?.getTime() ?? 0;
   };
 
-  return [...sessions].sort((left, right) => valueFor(right) - valueFor(left) || left.id.localeCompare(right.id));
+  return [...sessions].sort((left, right) => {
+    const rank = annotationRank(left, statuses) - annotationRank(right, statuses);
+    if (rank !== 0) return rank;
+    return valueFor(right) - valueFor(left) || left.id.localeCompare(right.id);
+  });
 }
 
 export function handleBrowserInput(state, str, key) {
@@ -100,7 +121,7 @@ export function handleBrowserInput(state, str, key) {
 }
 
 function handleNormalInput(state, str, key, visibleSessions) {
-  if (key?.name === "q") {
+  if (isLetterKey(str, key, "q")) {
     return "exit";
   }
 
@@ -113,12 +134,12 @@ function handleNormalInput(state, str, key, visibleSessions) {
     return "exit";
   }
 
-  if (key?.name === "down" || str === "j") {
+  if (isDownKey(str, key) || isLetterKey(str, key, "j")) {
     moveSelection(state, 1, visibleSessions);
     return "render";
   }
 
-  if (key?.name === "up" || str === "k") {
+  if (isUpKey(str, key) || isLetterKey(str, key, "k")) {
     moveSelection(state, -1, visibleSessions);
     return "render";
   }
@@ -128,23 +149,20 @@ function handleNormalInput(state, str, key, visibleSessions) {
     return "render";
   }
 
+  if (key?.ctrl && key.name === "b") {
+    return toggleSelectedPin(state, visibleSessions);
+  }
+
+  if (key?.ctrl && key.name === "t") {
+    return cycleSelectedStatus(state, visibleSessions);
+  }
+
   if (key?.ctrl && key.name === "n") {
     return "select-new";
   }
 
   if (key?.ctrl && key.name === "u") {
     clearSearch(state);
-    return "render";
-  }
-
-  if (isBackspace(str, key)) {
-    if (!state.search) {
-      return "ignore";
-    }
-    state.search = state.search.slice(0, -1);
-    state.selectedIndex = 0;
-    updateSearchResults(state);
-    state.selectedId = getVisibleSessions(state)[0]?.id;
     return "render";
   }
 
@@ -163,28 +181,20 @@ function handleNormalInput(state, str, key, visibleSessions) {
     return "render";
   }
 
-  if (str === "/") {
+  if (isSlash(str, key)) {
     state.mode = "search";
     state.message = "";
     return "render";
   }
 
-  if (str === "?") {
+  if (str === "?" || key?.sequence === "?") {
     state.message =
-      "Controls: j/k/arrows navigate, Ctrl+p toggle preview pane, Enter resume, Ctrl+n new in directory, / search, Esc clear+leave search, Ctrl+u clear, q quit | Rows: age · agent · directory · prompt · turns | Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd (preview jumps to matches)";
+      "Controls: j/k/arrows navigate, / search, Ctrl+b pin, Ctrl+t status, Ctrl+p toggle preview pane, Enter resume, Ctrl+n new in directory, Esc clear+leave search, Ctrl+u clear, q quit | Rows: age · agent · meta · directory · prompt · turns | Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd (preview jumps to matches)";
     return "render";
   }
 
   if (key?.name === "return") {
     return "select";
-  }
-
-  if (isPrintable(str, key)) {
-    state.search += str;
-    state.selectedIndex = 0;
-    updateSearchResults(state);
-    state.selectedId = getVisibleSessions(state)[0]?.id;
-    return "render";
   }
 
   return "ignore";
@@ -216,6 +226,14 @@ function handleSearchInput(state, str, key, visibleSessions) {
     return "render";
   }
 
+  if (key?.ctrl && key.name === "b") {
+    return toggleSelectedPin(state, visibleSessions);
+  }
+
+  if (key?.ctrl && key.name === "t") {
+    return cycleSelectedStatus(state, visibleSessions);
+  }
+
   if (key?.name === "tab") {
     state.focusedControl = state.focusedControl === "filter" ? "sort" : "filter";
     return "render";
@@ -244,12 +262,12 @@ function handleSearchInput(state, str, key, visibleSessions) {
     return "render";
   }
 
-  if (key?.name === "down") {
+  if (isDownKey(str, key)) {
     moveSelection(state, 1, visibleSessions);
     return "render";
   }
 
-  if (key?.name === "up") {
+  if (isUpKey(str, key)) {
     moveSelection(state, -1, visibleSessions);
     return "render";
   }
@@ -263,6 +281,24 @@ function handleSearchInput(state, str, key, visibleSessions) {
   }
 
   return "ignore";
+}
+
+function toggleSelectedPin(state, visibleSessions) {
+  const session = visibleSessions[state.selectedIndex];
+  if (!session) return "ignore";
+  session.pinned = !session.pinned;
+  state.selectedId = session.id;
+  clampSelection(state);
+  return "annotate";
+}
+
+function cycleSelectedStatus(state, visibleSessions) {
+  const session = visibleSessions[state.selectedIndex];
+  if (!session) return "ignore";
+  session.status = nextStatus(session.status, statusesOf(state));
+  state.selectedId = session.id;
+  clampSelection(state);
+  return "annotate";
 }
 
 function moveSelection(state, delta, visibleSessions) {
@@ -309,6 +345,28 @@ function getSearchFields(session) {
   ]
     .filter(Boolean)
     .map((value) => String(value).toLowerCase());
+}
+
+function isDownKey(str, key) {
+  const sequence = str || key?.sequence;
+  return key?.name === "down" || sequence === "\x1b[B" || sequence === "\x1bOB";
+}
+
+function isUpKey(str, key) {
+  const sequence = str || key?.sequence;
+  return key?.name === "up" || sequence === "\x1b[A" || sequence === "\x1bOA";
+}
+
+function isLetterKey(str, key, letter) {
+  if (key?.ctrl || key?.meta) return false;
+  return [str, key?.name, key?.sequence].some((value) => (
+    typeof value === "string" && value.toLowerCase() === letter
+  ));
+}
+
+function isSlash(str, key) {
+  if (key?.ctrl || key?.meta) return false;
+  return str === "/" || key?.sequence === "/" || key?.name === "/";
 }
 
 function isBackspace(str, key) {

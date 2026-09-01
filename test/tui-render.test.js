@@ -4,6 +4,7 @@ import {
   buildConversationExcerpt,
   countUserTurns,
   formatAgentBadge,
+  formatFlag,
   highlightMatches,
   listColumnLayout,
   PREVIEW_SIDE_MIN_WIDTH,
@@ -12,6 +13,7 @@ import {
   renderSearchField,
   SEARCH_PLACEHOLDER,
 } from "../src/tui/render.js";
+import { NERD_BOOKMARK, STAR_PIN, pinMarker, resetNerdFontCache } from "../src/lib/icons.js";
 import { createBrowserState, handleBrowserInput } from "../src/tui/state.js";
 
 const session = {
@@ -89,17 +91,17 @@ test("100x30 frame stacks the preview pane and uses the indexed list columns", (
   assert.match(lines[2], new RegExp(`┌ / .*${SEARCH_PLACEHOLDER.split(" · ")[0]}`));
   assert.match(lines[3], /Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
   assert.ok(header, "expected column headers");
-  assert.match(header, /AGE\s+AGENT\s+DIRECTORY\s+PROMPT\s+TURNS/);
+  assert.match(header, /AGE\s+AGENT\s+META\s+DIRECTORY\s+PROMPT\s+TURNS/);
   assert.ok(row, "expected a compact session row");
   assert.equal(row.slice(cols.age, cols.age + layout.age).trimEnd(), "2d ago");
   assert.equal(row.slice(cols.agent, cols.agent + layout.agent).trimEnd(), "claude");
   assert.equal(
     row.slice(cols.directory, cols.directory + layout.directory).trimEnd(),
-    ".../github/a-project-with-a-long-name",
+    "...ub/a-project-with-a-long-name",
   );
   assert.equal(
     row.slice(cols.prompt, cols.prompt + layout.prompt).trimEnd(),
-    "short prompt preview with extra w...",
+    "short prompt preview with ex...",
   );
   assert.equal(row.slice(cols.turns, cols.turns + layout.turns).trim(), "2");
   assert.ok(!row.includes("│"), "stacked layout keeps the list row full-width");
@@ -107,11 +109,11 @@ test("100x30 frame stacks the preview pane and uses the indexed list columns", (
   assert.match(frame, /Model:\s+claude-opus-4/);
   assert.match(frame, /Branch:\s+feature\/session-details/);
   assert.match(frame, /Turns:\s+2/);
+  assert.match(frame, /Pinned:\s+no/);
+  assert.match(frame, /Status:\s+-/);
   assert.match(frame, /you: A richer prompt with context/);
-  assert.match(frame, /ai:\s+I will inspect the session details/);
-  assert.match(frame, /you: And another question/);
   assert.match(lines.at(-2), /\[enter\] resume.*\[ctrl\+n\] new.*\[esc\] exit.*\[ctrl\+c\] exit.*\[tab\] focus.*\[←\/→\] option/);
-  assert.match(lines.at(-1), /\[ctrl\+p\] preview.*\[↑\/↓\] browse.*1 \/ 1 · 100%/);
+  assert.match(lines.at(-1), /\[ctrl\+b\] pin.*\[ctrl\+t\] status.*\[ctrl\+p\] preview.*\[↑\/↓\] browse.*1 \/ 1 · 100%/);
   assert.ok(lines.every((line) => line.length <= 100));
 });
 
@@ -154,7 +156,7 @@ test("preview pane fills remaining height with later conversation turns", () => 
   state.now = new Date("2026-07-15T12:00:00Z");
   state.previewPane = true;
 
-  const frame = plain(renderBrowserFrame(state, 100, 30));
+  const frame = plain(renderBrowserFrame(state, 100, 36));
   assert.match(frame, /Turns:\s+3/);
   assert.match(frame, /you: First question about the layout/);
   assert.match(frame, /you: Second question about turn counts/);
@@ -177,14 +179,14 @@ test("60x16 frame drops directory and keeps headers within the terminal", () => 
   assert.match(lines[2], /Search titles/);
   assert.match(lines[3], /Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
   assert.ok(header);
-  assert.match(header, /AGE\s+AGENT\s+PROMPT\s+TURNS/);
+  assert.match(header, /AGE\s+AGENT\s+META\s+PROMPT\s+TURNS/);
   assert.equal(header.includes("DIRECTORY"), false);
   assert.ok(row, "expected a compact session row");
   assert.equal(row.slice(cols.age, cols.age + layout.age).trimEnd(), "2d ago");
   assert.equal(row.slice(cols.agent, cols.agent + layout.agent).trimEnd(), "claude");
   assert.equal(
     row.slice(cols.prompt, cols.prompt + layout.prompt).trimEnd(),
-    "short prompt preview with extra...",
+    "short prompt preview ...",
   );
   assert.equal(row.slice(cols.turns, cols.turns + layout.turns).trim(), "-");
   assert.match(lines.join("\n"), /Session:\s+11111111-2222-4333-8444-555555555555/);
@@ -279,7 +281,7 @@ test("toggling the preview pane off restores a full-width list without details",
   assert.ok(row);
   assert.equal(
     row.slice(layout.columns.prompt, layout.columns.prompt + layout.prompt).trimEnd(),
-    "short prompt preview with extra w...",
+    "short prompt preview with ex...",
   );
   assert.equal(frame.includes("Session:"), false);
   assert.equal(frame.includes("Conversation:"), false);
@@ -402,9 +404,9 @@ test("search match highlights terms in the preview and ignores filter tokens", (
   const previous = process.env.NO_COLOR;
   delete process.env.NO_COLOR;
   try {
-    const raw = renderBrowserFrame(state, 100, 30);
+    const raw = renderBrowserFrame(state, PREVIEW_SIDE_MIN_WIDTH, 30);
     const frame = plain(raw);
-    assert.match(frame, /you: Please inspect the billing invoice totals/);
+    assert.match(frame, /you: Please inspect the billing invoice/);
     assert.equal(frame.includes("First question about the layout"), false);
     assert.match(raw, /\x1b\[1;33mbilling\x1b\[0m/i);
     assert.equal(raw.toLowerCase().includes("\x1b[1;33mdir\x1b[0m"), false);
@@ -472,7 +474,7 @@ test("search field shows short queries with an end cursor cell", () => {
   const previous = process.env.NO_COLOR;
   delete process.env.NO_COLOR;
   try {
-    const raw = renderSearchField({ search: "parser" }, 80);
+    const raw = renderSearchField({ search: "parser", mode: "search" }, 80);
     const field = plain(raw);
     assert.match(field, /^┌ \/ parser/);
     assert.match(raw, /parser\x1b\[7m \x1b\[0m/);
@@ -486,7 +488,7 @@ test("search field shows short queries with an end cursor cell", () => {
 
 test("search field left-truncates long overflowing queries", () => {
   const query = "x".repeat(120);
-  const field = plain(renderSearchField({ search: query }, 60));
+  const field = plain(renderSearchField({ search: query, mode: "search" }, 60));
   assert.match(field, /^┌ \/ \.\.\./);
   assert.ok(field.includes("xxx"));
   assert.match(field, / ┐$/);
@@ -584,7 +586,7 @@ test("preview conversation renders basic markdown styles", () => {
   const previous = process.env.NO_COLOR;
   delete process.env.NO_COLOR;
   try {
-    const raw = renderBrowserFrame(state, 100, 30);
+    const raw = renderBrowserFrame(state, PREVIEW_SIDE_MIN_WIDTH, 30);
     const frame = plain(raw);
     assert.match(frame, /you: Setup/);
     assert.match(frame, /Use bold and code/);
@@ -597,4 +599,55 @@ test("preview conversation renders basic markdown styles", () => {
     if (previous === undefined) delete process.env.NO_COLOR;
     else process.env.NO_COLOR = previous;
   }
+});
+
+test("formatFlag distinguishes pin, pending, and parked", () => {
+  const previous = process.env.AGENT_HISTORY_NERD_FONTS;
+  process.env.AGENT_HISTORY_NERD_FONTS = "0";
+  resetNerdFontCache();
+  try {
+    assert.equal(formatFlag({}).trim(), "");
+    assert.equal(formatFlag({ pinned: true }).trim(), STAR_PIN);
+    assert.match(formatFlag({ status: "pending" }), /pending/);
+    assert.match(formatFlag({ status: "parked" }), /parked/);
+    assert.match(formatFlag({ pinned: true, status: "pending" }), new RegExp(`^${STAR_PIN} pending`));
+    assert.notEqual(formatFlag({ status: "pending" }), formatFlag({ status: "parked" }));
+  } finally {
+    if (previous === undefined) delete process.env.AGENT_HISTORY_NERD_FONTS;
+    else process.env.AGENT_HISTORY_NERD_FONTS = previous;
+    resetNerdFontCache();
+  }
+});
+
+test("pinMarker uses a Nerd Font bookmark when enabled and a star otherwise", () => {
+  const previous = process.env.AGENT_HISTORY_NERD_FONTS;
+  try {
+    process.env.AGENT_HISTORY_NERD_FONTS = "0";
+    resetNerdFontCache();
+    assert.equal(pinMarker(), STAR_PIN);
+
+    process.env.AGENT_HISTORY_NERD_FONTS = "1";
+    resetNerdFontCache();
+    assert.equal(pinMarker(), NERD_BOOKMARK);
+  } finally {
+    if (previous === undefined) delete process.env.AGENT_HISTORY_NERD_FONTS;
+    else process.env.AGENT_HISTORY_NERD_FONTS = previous;
+    resetNerdFontCache();
+  }
+});
+
+test("pending count appears in the footer only for the current scope", () => {
+  const pending = { ...session, id: "pend", status: "pending", cwd: "/tmp/project" };
+  const other = { ...session, id: "other", status: "pending", cwd: "/tmp/other" };
+  const state = createBrowserState([pending, other], { currentCwd: "/tmp/project" });
+  state.now = new Date("2026-07-15T12:00:00Z");
+
+  const cwdFrame = plain(renderBrowserFrame(state, 100, 24));
+  assert.match(cwdFrame, /1 pending/);
+  assert.match(cwdFrame, /Pinned:\s+no/);
+  assert.match(cwdFrame, /Status:\s+pending/);
+
+  state.scope = "all";
+  const allFrame = plain(renderBrowserFrame(state, 100, 24));
+  assert.match(allFrame, /2 pending/);
 });

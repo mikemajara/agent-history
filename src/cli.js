@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import { formatResumeCommand, formatSessionDetail, formatSessionTable } from "./format.js";
+import { getStatuses, upsertAnnotation } from "./lib/annotations.js";
 import { getAllSessions, getSessionsForCwd } from "./session-index.js";
 import { resolveTargetCwd } from "./lib/path-utils.js";
 import { upgradePackage } from "./lib/upgrade.js";
@@ -17,9 +18,13 @@ const KNOWN_OPTIONS = new Set([
   "--no-preview",
   "--refresh",
   "--upgrade",
+  "--clear",
 ]);
 
-const HELP_TEXT = `agent-history ${version}
+function helpText(statuses) {
+  const statusValues = statuses.join("|");
+  const statusCycle = ["none", ...statuses].join(" → ");
+  return `agent-history ${version}
 Find and resume AI agent sessions for the current repo or directory.
 
 Usage:
@@ -30,6 +35,10 @@ Usage:
   agent-history ls [path]     Scriptable table of sessions
   agent-history show <id>     Detailed metadata for a session
   agent-history resume <id>   Print the resume command for a session
+  agent-history pin <id>      Pin a session so it floats in the browser
+  agent-history unpin <id>    Remove the pin
+  agent-history status <id> [${statusValues}|--clear]
+                              Show or set follow-up status
 
 Also available as: ah
 
@@ -47,20 +56,26 @@ Commands:
 
 Interactive controls:
   tab focus filter/sort       left/right change Cwd/All or Updated/Created
-  up/down or j/k browse       type to search, / search, Ctrl+p preview
+  up/down or j/k browse       / search, Ctrl+p preview
+  Ctrl+b pin                  Ctrl+t cycle status ${statusCycle}
   Enter resume                Ctrl+n new in directory
   Esc exit/clear              Ctrl+C exit
 
 Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd
-Type into the bordered / search field; empty placeholder lists what you can search.
-Compact rows show: age · agent · directory · prompt · turns
+Press / to type in the bordered search field; empty placeholder lists what you can search.
+Compact rows show: age · agent · meta · directory · prompt · turns
 Preview pane (on by default): side split on wide terminals, stacked when narrow
 --no-preview keeps metadata and search over agent/id/path/metadata; hides prompts
+Pin/status: stored at ~/.local/share/agent-history/annotations-v1.json
+  Override with AGENT_HISTORY_DATA_DIR; not affected by --refresh or cache clear
+Statuses: ~/.config/agent-history/config.json  { "statuses": ["pending", "parked"] }
+  Override path with AGENT_HISTORY_CONFIG; first entry floats and is counted in the footer
 
 Cache:
   Session metadata is cached at ~/.cache/agent-history/sessions-v1.json
   Invalidates when provider transcript files change (path/mtime/size fingerprint)
   Override location with AGENT_HISTORY_CACHE_DIR; force rebuild with --refresh`;
+}
 
 export async function main(argv, io, options = {}) {
   const unknownOption = argv.find((arg) => arg.startsWith("-") && !KNOWN_OPTIONS.has(arg));
@@ -74,9 +89,11 @@ export async function main(argv, io, options = {}) {
   const noPreview = argv.includes("--no-preview") || options.noPreview === true;
   const args = argv.filter((arg) => arg !== "--refresh" && arg !== "--no-preview");
   const [command, arg] = args;
+  const statuses = getStatuses(options);
+  options = { ...options, statuses };
 
   if (command === "--help" || command === "-h" || command === "help") {
-    io.stdout.write(`${HELP_TEXT}\n`);
+    io.stdout.write(`${helpText(statuses)}\n`);
     return;
   }
 
@@ -131,8 +148,10 @@ export async function main(argv, io, options = {}) {
   }
 
   if (!command) {
-    const sessions = await getAllSessions({ ...options, refresh });
-    const exitCode = await runInteractiveBrowser(sessions, io, {
+    const sessions = await loadAllSessions({ ...options, refresh });
+    const browse = options.runInteractiveBrowser ?? runInteractiveBrowser;
+    const exitCode = await browse(sessions, io, {
+      ...options,
       currentCwd: await resolveTargetCwd(),
       noPreview,
     });
@@ -147,33 +166,61 @@ export async function main(argv, io, options = {}) {
   }
 
   if (command === "show") {
-    const sessions = await getAllSessions({ ...options, refresh });
-    const session = findSession(sessions, arg);
-    if (!session) {
-      io.stderr.write(`Session not found: ${arg ?? ""}\n`);
-      process.exitCode = 1;
-      return;
-    }
-
+    const session = await findSessionOrExit(arg, io, { ...options, refresh });
+    if (!session) return;
     io.stdout.write(`${formatSessionDetail(session)}\n`);
     return;
   }
 
   if (command === "resume") {
-    const sessions = await getAllSessions({ ...options, refresh });
-    const session = findSession(sessions, arg);
-    if (!session?.resumeCommand) {
+    const session = await findSessionOrExit(arg, io, { ...options, refresh });
+    if (!session) return;
+    if (!session.resumeCommand) {
       io.stderr.write(`Session not found: ${arg ?? ""}\n`);
       process.exitCode = 1;
       return;
     }
-
     io.stdout.write(`${formatResumeCommand(session)}\n`);
     return;
   }
 
-  const sessions = await getAllSessions({ ...options, refresh });
-  const exitCode = await runInteractiveBrowser(sessions, io, {
+  if (command === "pin" || command === "unpin") {
+    const session = await findSessionOrExit(arg, io, { ...options, refresh });
+    if (!session) return;
+    const pinned = command === "pin";
+    const saved = await upsertAnnotation(session, { pinned }, options);
+    applySavedAnnotation(session, saved);
+    io.stdout.write(`${formatAnnotationLine(session)}\n`);
+    return;
+  }
+
+  if (command === "status") {
+    const clear = args.includes("--clear");
+    const statusArgs = args.slice(1).filter((value) => value !== "--clear");
+    const id = statusArgs[0];
+    const value = statusArgs[1];
+    const session = await findSessionOrExit(id, io, { ...options, refresh });
+    if (!session) return;
+
+    if (clear || value) {
+      if (value && !statuses.includes(value)) {
+        io.stderr.write(`Unknown status: ${value}. Use ${statuses.join(", ")}, or --clear.\n`);
+        process.exitCode = 1;
+        return;
+      }
+      const status = clear ? null : value;
+      const saved = await upsertAnnotation(session, { status }, options);
+      applySavedAnnotation(session, saved);
+    }
+
+    io.stdout.write(`${formatAnnotationLine(session)}\n`);
+    return;
+  }
+
+  const sessions = await loadAllSessions({ ...options, refresh });
+  const browse = options.runInteractiveBrowser ?? runInteractiveBrowser;
+  const exitCode = await browse(sessions, io, {
+    ...options,
     currentCwd: await resolveTargetCwd(command),
     noPreview,
   });
@@ -204,7 +251,43 @@ export async function resumeLastSession(io, options = {}) {
 }
 
 async function getSessions(pathArg, options = {}) {
-  return pathArg ? getSessionsForCwd(pathArg, options) : getAllSessions(options);
+  return pathArg ? getSessionsForCwd(pathArg, options) : loadAllSessions(options);
+}
+
+function loadAllSessions(options = {}) {
+  const load = options.getAllSessions ?? getAllSessions;
+  return load(options);
+}
+
+async function findSessionOrExit(inputId, io, options = {}) {
+  if (!inputId) {
+    io.stderr.write("Session not found: \n");
+    process.exitCode = 1;
+    return undefined;
+  }
+
+  const sessions = await loadAllSessions(options);
+  const session = findSession(sessions, inputId);
+  if (!session) {
+    io.stderr.write(`Session not found: ${inputId}\n`);
+    process.exitCode = 1;
+    return undefined;
+  }
+  return session;
+}
+
+function formatAnnotationLine(session) {
+  return [
+    `id: ${session.id}`,
+    `agent: ${session.agent}`,
+    `pinned: ${session.pinned ? "yes" : "no"}`,
+    `status: ${session.status ?? "-"}`,
+  ].join("\n");
+}
+
+function applySavedAnnotation(session, saved) {
+  session.pinned = saved?.pinned === true;
+  session.status = saved?.status;
 }
 
 function findSession(sessions, inputId) {

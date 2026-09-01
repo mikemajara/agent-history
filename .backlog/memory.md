@@ -12,6 +12,7 @@
 - Search stays generic in the query box. Cwd/All is the only scope chrome. MVP in-query tokens are `dir:` and `date:` only (#15). Structured `agent:` and Tab token-complete are follow-ups; free-text must still match agent names.
 - TUI polish direction is inspired by `fast-resume`, but stay on the Node/readline renderer unless profiling forces a framework change. Prefer: always-on preview pane, match highlighting, colored agent badges, directory column, search-first chrome, narrow in-query filters, keycap footer.
 - Do not adopt `fast-resume` terminal PNG agent art, yolo modals, or a Tantivy rewrite as part of the near-term TUI stories.
+- Session pin/status is a user overlay, not provider data (#29). Store at `~/.local/share/agent-history/annotations-v1.json` (override with `AGENT_HISTORY_DATA_DIR`). Never put annotations in the session cache; `cache clear` / `--refresh` must not wipe them. v1 fields: `pinned` plus `status` of `pending` | `parked`. Cwd/All stays the only scope chrome; pending floats and is counted in the footer, parked is badge-only.
 
 ## Blockers
 

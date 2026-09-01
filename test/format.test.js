@@ -15,6 +15,8 @@ test("formats a session table with headers", () => {
   ]);
 
   assert.match(output, /agent/);
+  assert.match(output, /pin/);
+  assert.match(output, /status/);
   assert.match(output, /codex/);
   assert.match(output, /abcdef/);
   assert.match(output, /2026-05-29 \d{2}:00/);

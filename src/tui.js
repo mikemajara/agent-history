@@ -1,6 +1,7 @@
 import readline from "node:readline";
 import { spawn } from "node:child_process";
-import { clampSelection, createBrowserState, getVisibleSessions, handleBrowserInput, setSearchIndex } from "./tui/state.js";
+import { upsertAnnotation } from "./lib/annotations.js";
+import { createBrowserState, getVisibleSessions, handleBrowserInput, setSearchIndex } from "./tui/state.js";
 import { renderBrowserFrame } from "./tui/render.js";
 import { getLaunchCommand } from "./lib/launch-command.js";
 import { buildIndex } from "./lib/search.js";
@@ -18,6 +19,10 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
 
   const state = createBrowserState(sessions, options);
   const launch = options.launchSession ?? launchSession;
+  const persistAnnotation = options.persistAnnotation ?? ((session) => upsertAnnotation(session, {
+    pinned: session.pinned === true,
+    status: session.status ?? null,
+  }, options));
   state.indexing = true;
 
   readline.emitKeypressEvents(io.stdin);
@@ -90,6 +95,20 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
             const verb = mode === "new" ? "start" : "resume";
             io.stderr.write(`Failed to ${verb} session: ${error.message}\n`);
             resolve(1);
+          });
+        }
+        return;
+      }
+
+      if (action === "annotate") {
+        const visibleSessions = getVisibleSessions(state);
+        const selected = visibleSessions[state.selectedIndex];
+        render();
+        if (selected) {
+          Promise.resolve(persistAnnotation(selected)).catch((error) => {
+            if (!active) return;
+            state.message = `Failed to save annotation: ${error.message}`;
+            render();
           });
         }
         return;

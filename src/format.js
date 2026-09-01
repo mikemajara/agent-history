@@ -6,19 +6,23 @@ export function formatSessionTable(sessions, options = {}) {
   const hidePreview = options.noPreview === true;
   const rows = sessions.map((session) => ({
     agent: session.agent,
+    pin: session.pinned ? "*" : "-",
+    status: session.status ?? "-",
     updated: formatCompactDate(session.updatedAt ?? session.startedAt),
     id: shortenId(session.id),
     project: truncate(formatProject(session), 42),
     preview: hidePreview ? "-" : truncate(session.preview ?? "-", 80),
   }));
 
-  return formatTable(rows, ["agent", "updated", "id", "project", "preview"]);
+  return formatTable(rows, ["agent", "pin", "status", "updated", "id", "project", "preview"]);
 }
 
 export function formatSessionDetail(session) {
   const lines = [
     `agent: ${session.agent}`,
     `id: ${session.id}`,
+    `pinned: ${session.pinned ? "yes" : "no"}`,
+    `status: ${session.status ?? "-"}`,
     `updated: ${formatLocalDate(session.updatedAt ?? session.startedAt)}`,
     `cwd: ${session.cwd ?? "-"}`,
     `transcript: ${session.transcriptPath ?? "-"}`,

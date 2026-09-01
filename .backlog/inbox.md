@@ -5,6 +5,7 @@ Raw ideas not yet promoted to GitHub Issues.
 ## Inbox
 
 Promoted to GitHub Issues:
+- #29 Pin and status-tag sessions so pending chats are visible in `ah`
 - #18 Highlight the focused filter/sort control when Tabbing — **closed** (inverse highlight on focused control)
 - #1 Decide safe handoff for selected session command — **closed** (no clipboard; Enter resume; open-new → #17)
 - #2 Always-on TUI preview pane (side/bottom) — **closed** (always-on pane + headed table)

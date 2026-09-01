@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createBrowserState, getVisibleSessions, handleBrowserInput } from "../src/tui/state.js";
+import { createBrowserState, getVisibleSessions, handleBrowserInput, countPendingInScope } from "../src/tui/state.js";
 
 const sessions = [
   {
@@ -30,6 +30,46 @@ test("j and k navigate in normal mode", () => {
   assert.equal(handleBrowserInput(state, "j", { name: "j" }), "render");
   assert.equal(state.selectedIndex, 1);
   assert.equal(handleBrowserInput(state, "k", { name: "k" }), "render");
+  assert.equal(state.selectedIndex, 0);
+});
+
+test("j and k navigate when readline only provides key.name", () => {
+  const state = createBrowserState(sessions);
+
+  assert.equal(handleBrowserInput(state, undefined, { name: "j" }), "render");
+  assert.equal(state.selectedIndex, 1);
+  assert.equal(handleBrowserInput(state, undefined, { name: "k" }), "render");
+  assert.equal(state.selectedIndex, 0);
+});
+
+test("j and k type into the query after slash opens search", () => {
+  const state = createBrowserState(sessions);
+  handleBrowserInput(state, "/", {});
+
+  assert.equal(handleBrowserInput(state, "j", { name: "j" }), "render");
+  assert.equal(handleBrowserInput(state, "k", { name: "k" }), "render");
+  assert.equal(state.mode, "search");
+  assert.equal(state.search, "jk");
+  assert.equal(state.selectedIndex, 0);
+});
+
+test("arrow keys move the list even when readline only provides the CSI sequence", () => {
+  const state = createBrowserState(sessions);
+
+  assert.equal(handleBrowserInput(state, "\x1b[B", {}), "render");
+  assert.equal(state.selectedIndex, 1);
+  assert.equal(handleBrowserInput(state, "\x1b[A", {}), "render");
+  assert.equal(state.selectedIndex, 0);
+  assert.equal(handleBrowserInput(state, undefined, { name: "down" }), "render");
+  assert.equal(state.selectedIndex, 1);
+  assert.equal(handleBrowserInput(state, undefined, { name: "up" }), "render");
+  assert.equal(state.selectedIndex, 0);
+});
+
+test("left and right arrows change filter/sort rather than the selected row", () => {
+  const state = createBrowserState(sessions, { initialScope: "all" });
+  assert.equal(handleBrowserInput(state, undefined, { name: "right" }), "render");
+  assert.equal(state.scope, "cwd");
   assert.equal(state.selectedIndex, 0);
 });
 
@@ -139,27 +179,30 @@ test("current directory is the default scope and controls operate over all sessi
   assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["old", "new"]);
 });
 
-test("printable input starts search without requiring slash", () => {
+test("printable input does not search until slash", () => {
   const state = createBrowserState([
     { agent: "codex", id: "first", preview: "alpha" },
     { agent: "codex", id: "second", preview: "bravo" },
   ]);
 
-  assert.equal(handleBrowserInput(state, "b", {}), "render");
-  assert.equal(state.search, "b");
-  assert.equal(getVisibleSessions(state)[0]?.id, "second");
+  assert.equal(handleBrowserInput(state, "b", {}), "ignore");
+  assert.equal(state.mode, "normal");
+  assert.equal(state.search, "");
+  assert.equal(getVisibleSessions(state)[0]?.id, "first");
 });
 
-test("backspace edits type-to-search query in normal mode", () => {
+test("slash then typing searches; backspace edits the query", () => {
   const state = createBrowserState([
     { agent: "codex", id: "first", preview: "alpha" },
     { agent: "codex", id: "second", preview: "bravo" },
   ]);
 
+  assert.equal(handleBrowserInput(state, "/", {}), "render");
   handleBrowserInput(state, "b", {});
   handleBrowserInput(state, "r", {});
-  assert.equal(state.mode, "normal");
+  assert.equal(state.mode, "search");
   assert.equal(state.search, "br");
+  assert.equal(getVisibleSessions(state)[0]?.id, "second");
 
   assert.equal(handleBrowserInput(state, undefined, { name: "backspace" }), "render");
   assert.equal(state.search, "b");
@@ -167,7 +210,6 @@ test("backspace edits type-to-search query in normal mode", () => {
 
   assert.equal(handleBrowserInput(state, "\x7f", {}), "render");
   assert.equal(state.search, "");
-  assert.equal(handleBrowserInput(state, undefined, { name: "backspace" }), "ignore");
 });
 
 test("cwd scope still applies with dir: token", () => {
@@ -256,3 +298,85 @@ test("token-only queries filter without requiring free text", () => {
   state.search = "dir:beta";
   assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["b"]);
 });
+
+test("ctrl+b pins and ctrl+t cycles status without stealing search letters", () => {
+  const state = createBrowserState([
+    { agent: "codex", id: "one", preview: "alpha", updatedAt: new Date("2026-01-02") },
+    { agent: "cursor", id: "two", preview: "bravo", updatedAt: new Date("2026-01-03") },
+  ], { initialScope: "all" });
+
+  assert.equal(handleBrowserInput(state, "p", {}), "ignore");
+  assert.equal(state.search, "");
+  assert.equal(handleBrowserInput(state, undefined, { name: "b", ctrl: true }), "annotate");
+  const selected = getVisibleSessions(state)[state.selectedIndex];
+  assert.equal(selected.pinned, true);
+  assert.equal(handleBrowserInput(state, undefined, { name: "t", ctrl: true }), "annotate");
+  assert.equal(selected.status, "pending");
+  assert.equal(handleBrowserInput(state, undefined, { name: "t", ctrl: true }), "annotate");
+  assert.equal(selected.status, "parked");
+  assert.equal(handleBrowserInput(state, undefined, { name: "t", ctrl: true }), "annotate");
+  assert.equal(selected.status, undefined);
+});
+
+test("ctrl+t cycles a custom status list", () => {
+  const state = createBrowserState(sessions, { statuses: ["todo", "waiting"] });
+  const selected = getVisibleSessions(state)[state.selectedIndex];
+  assert.equal(handleBrowserInput(state, undefined, { name: "t", ctrl: true }), "annotate");
+  assert.equal(selected.status, "todo");
+  assert.equal(handleBrowserInput(state, undefined, { name: "t", ctrl: true }), "annotate");
+  assert.equal(selected.status, "waiting");
+  assert.equal(handleBrowserInput(state, undefined, { name: "t", ctrl: true }), "annotate");
+  assert.equal(selected.status, undefined);
+});
+
+test("ctrl+p still toggles preview instead of pinning", () => {
+  const state = createBrowserState(sessions);
+  assert.equal(handleBrowserInput(state, undefined, { name: "p", ctrl: true }), "render");
+  assert.equal(state.previewPane, false);
+  assert.equal(state.sessions[0].pinned, undefined);
+});
+
+test("search mode treats p and s as query text and still allows ctrl pin/status", () => {
+  const state = createBrowserState(sessions);
+  handleBrowserInput(state, "/", {});
+  assert.equal(handleBrowserInput(state, "p", {}), "render");
+  assert.equal(handleBrowserInput(state, "s", {}), "render");
+  assert.equal(state.search, "ps");
+
+  handleBrowserInput(state, undefined, { name: "backspace" });
+  handleBrowserInput(state, undefined, { name: "backspace" });
+  handleBrowserInput(state, "p", {});
+  assert.equal(state.search, "p");
+  assert.equal(handleBrowserInput(state, undefined, { name: "b", ctrl: true }), "annotate");
+  assert.equal(getVisibleSessions(state)[state.selectedIndex].pinned, true);
+});
+
+test("pinned then unpinned pending float above recency; parked does not", () => {
+  const state = createBrowserState([
+    { agent: "codex", id: "newest", updatedAt: new Date("2026-03-01"), preview: "new" },
+    { agent: "cursor", id: "parked", updatedAt: new Date("2026-02-01"), status: "parked", preview: "park" },
+    { agent: "claude", id: "pending", updatedAt: new Date("2026-01-01"), status: "pending", preview: "pend" },
+    { agent: "fx", id: "pinned", updatedAt: new Date("2026-01-15"), pinned: true, preview: "pin" },
+  ], { initialScope: "all" });
+
+  assert.deepEqual(
+    getVisibleSessions(state).map((session) => session.id),
+    ["pinned", "pending", "newest", "parked"],
+  );
+});
+
+test("pending footer count uses Cwd/All scope, not the search filter", () => {
+  const state = createBrowserState([
+    { agent: "codex", id: "in-cwd", cwd: "/tmp/project", status: "pending", preview: "alpha" },
+    { agent: "cursor", id: "other", cwd: "/tmp/other", status: "pending", preview: "alpha" },
+    { agent: "claude", id: "hidden", cwd: "/tmp/project", status: "pending", preview: "zzz" },
+  ], { currentCwd: "/tmp/project" });
+
+  state.search = "alpha";
+  assert.equal(getVisibleSessions(state).length, 1);
+  assert.equal(countPendingInScope(state), 2);
+
+  state.scope = "all";
+  assert.equal(countPendingInScope(state), 3);
+});
+

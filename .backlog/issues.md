@@ -2,15 +2,16 @@
 
 # GitHub Issues
 
-Generated at: 2026-08-12T00:41:23.753Z
+Generated at: 2026-08-28T10:04:32.835Z
 
 | Issue | Status | Title | Labels | Assignees | Updated |
 | --- | --- | --- | --- | --- | --- |
-| #20 | OPEN | [Add fx session provider](https://github.com/mikemajara/agent-history/issues/20) | `agent-ready`, `priority:medium`, `status:ready`, `type:feat` | - | 2026-08-12 |
+| #29 | OPEN | [Pin and status-tag sessions so pending chats are visible in ah](https://github.com/mikemajara/agent-history/issues/29) | `agent-ready`, `priority:medium`, `status:ready`, `type:feat` | - | 2026-08-28 |
+| #20 | CLOSED | [Add fx session provider](https://github.com/mikemajara/agent-history/issues/20) | `agent-ready`, `priority:medium`, `status:ready`, `type:feat` | - | 2026-08-12 |
 | #19 | CLOSED | [Basic markdown rendering in TUI preview pane](https://github.com/mikemajara/agent-history/issues/19) | `agent-ready`, `priority:medium`, `status:doing`, `type:feat` | - | 2026-08-12 |
 | #18 | CLOSED | [Highlight the focused filter/sort control when Tabbing](https://github.com/mikemajara/agent-history/issues/18) | `priority:medium`, `status:doing`, `type:nit` | - | 2026-08-11 |
 | #17 | CLOSED | [Open new agent session from TUI (Ctrl+n / Alt+Enter)](https://github.com/mikemajara/agent-history/issues/17) | `agent-ready`, `priority:medium`, `status:ready`, `type:feat` | - | 2026-08-11 |
-| #16 | OPEN | [Keycap-styled TUI footer shortcuts](https://github.com/mikemajara/agent-history/issues/16) | `agent-ready`, `priority:low`, `status:ready`, `type:nit` | - | 2026-08-11 |
+| #16 | CLOSED | [Keycap-styled TUI footer shortcuts](https://github.com/mikemajara/agent-history/issues/16) | `agent-ready`, `priority:low`, `type:nit` | - | 2026-08-12 |
 | #15 | CLOSED | [In-query dir:/date: filters; keep search generic](https://github.com/mikemajara/agent-history/issues/15) | `agent-ready`, `priority:high`, `status:doing`, `type:feat` | - | 2026-08-12 |
 | #14 | CLOSED | [Search-first TUI input chrome with teaching placeholder](https://github.com/mikemajara/agent-history/issues/14) | `agent-ready`, `priority:medium`, `status:doing`, `type:nit` | - | 2026-08-12 |
 | #13 | CLOSED | [Add directory column to compact TUI rows](https://github.com/mikemajara/agent-history/issues/13) | `agent-ready`, `priority:medium`, `type:feat` | - | 2026-08-11 |
@@ -20,8 +21,8 @@ Generated at: 2026-08-12T00:41:23.753Z
 | #9 | OPEN | [Add a scrollable session transcript view](https://github.com/mikemajara/agent-history/issues/9) | - | - | 2026-07-28 |
 | #8 | OPEN | [When quitting agent history the terminal should clear](https://github.com/mikemajara/agent-history/issues/8) | - | - | 2026-06-14 |
 | #6 | CLOSED | [FIX: Cursor agent prints the wrong string to output](https://github.com/mikemajara/agent-history/issues/6) | `priority:high`, `status:ready` | - | 2026-06-15 |
-| #5 | OPEN | [Harden provider parsers for malformed JSONL](https://github.com/mikemajara/agent-history/issues/5) | `agent-ready`, `priority:low`, `status:ready`, `type:fix` | - | 2026-05-30 |
-| #4 | OPEN | [Add no-preview mode for sensitive sessions](https://github.com/mikemajara/agent-history/issues/4) | `agent-ready`, `priority:low`, `status:ready`, `type:feat` | - | 2026-05-30 |
+| #5 | CLOSED | [Harden provider parsers for malformed JSONL](https://github.com/mikemajara/agent-history/issues/5) | `agent-ready`, `priority:low`, `type:fix` | - | 2026-08-12 |
+| #4 | CLOSED | [Add no-preview mode for sensitive sessions](https://github.com/mikemajara/agent-history/issues/4) | `agent-ready`, `priority:low`, `type:feat` | - | 2026-08-12 |
 | #3 | CLOSED | [Cache session index for large histories](https://github.com/mikemajara/agent-history/issues/3) | `agent-ready`, `priority:medium`, `status:doing`, `type:chore` | - | 2026-08-12 |
 | #2 | CLOSED | [Always-on TUI preview pane (side/bottom)](https://github.com/mikemajara/agent-history/issues/2) | `agent-ready`, `priority:medium`, `status:doing`, `type:feat` | - | 2026-08-12 |
 | #1 | CLOSED | [Decide safe handoff for selected session command](https://github.com/mikemajara/agent-history/issues/1) | `priority:medium`, `type:feat` | - | 2026-08-11 |

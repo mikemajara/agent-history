@@ -3,6 +3,7 @@ import { discoverCodexSessions } from "./providers/codex.js";
 import { discoverAllCursorSessions, discoverCursorSessions } from "./providers/cursor.js";
 import { discoverFxSessions } from "./providers/fx.js";
 import { discoverOpenCodeSessions } from "./providers/opencode.js";
+import { applyAnnotations, DEFAULT_STATUSES, getStatuses, readAnnotations } from "./lib/annotations.js";
 import { encodeClaudeProjectSlug, encodeCursorProjectSlug, resolveTargetCwd } from "./lib/path-utils.js";
 import {
   clearSessionCache,
@@ -19,7 +20,7 @@ import {
 export async function getSessionsForCwd(inputCwd, options = {}) {
   const targetCwd = await resolveTargetCwd(inputCwd);
   if (options.cache === false) {
-    return discoverSessionsForCwd(targetCwd);
+    return withAnnotations(await discoverSessionsForCwd(targetCwd), options);
   }
 
   const sessions = await getAllSessions(options);
@@ -31,7 +32,7 @@ export async function getSessionsForCwd(inputCwd, options = {}) {
  */
 export async function getAllSessions(options = {}) {
   if (options.cache === false) {
-    return discoverAllSessionsUncached();
+    return withAnnotations(await discoverAllSessionsUncached(), options);
   }
 
   const cachePath = getCachePath(options);
@@ -40,7 +41,7 @@ export async function getAllSessions(options = {}) {
   if (!options.refresh) {
     const cached = await readSessionCache(cachePath, fingerprint);
     if (cached) {
-      return cached.sort(compareSessionsDesc);
+      return withAnnotations(cached.sort(compareSessionsDesc), options);
     }
   }
 
@@ -50,7 +51,7 @@ export async function getAllSessions(options = {}) {
   } catch {
     // Cache write failures must not break listing/browsing.
   }
-  return sessions;
+  return withAnnotations(sessions, options);
 }
 
 /**
@@ -115,4 +116,15 @@ function compareSessionsDesc(left, right) {
   const leftValue = left.updatedAt?.getTime() ?? left.startedAt?.getTime() ?? 0;
   const rightValue = right.updatedAt?.getTime() ?? right.startedAt?.getTime() ?? 0;
   return rightValue - leftValue;
+}
+
+async function withAnnotations(sessions, options = {}) {
+  const statuses = Array.isArray(options.statuses) || options.configPath || process.env.AGENT_HISTORY_CONFIG
+    ? getStatuses(options)
+    : DEFAULT_STATUSES;
+  try {
+    return applyAnnotations(sessions, await readAnnotations(options), statuses);
+  } catch {
+    return applyAnnotations(sessions, {}, statuses);
+  }
 }

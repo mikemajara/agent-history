@@ -9,6 +9,8 @@
  * @property {string | undefined} transcriptPath
  * @property {string[] | undefined} resumeCommand
  * @property {Record<string, unknown> | undefined} metadata
+ * @property {boolean | undefined} pinned
+ * @property {string | undefined} status
  */
 
 export {};

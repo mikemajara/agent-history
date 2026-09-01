@@ -126,11 +126,14 @@ export async function clearSessionCache(cachePath) {
 }
 
 export function serializeSessions(sessions) {
-  return sessions.map((session) => ({
-    ...session,
-    startedAt: session.startedAt instanceof Date ? session.startedAt.toISOString() : session.startedAt ?? null,
-    updatedAt: session.updatedAt instanceof Date ? session.updatedAt.toISOString() : session.updatedAt ?? null,
-  }));
+  return sessions.map((session) => {
+    const { pinned, status, ...rest } = session;
+    return {
+      ...rest,
+      startedAt: session.startedAt instanceof Date ? session.startedAt.toISOString() : session.startedAt ?? null,
+      updatedAt: session.updatedAt instanceof Date ? session.updatedAt.toISOString() : session.updatedAt ?? null,
+    };
+  });
 }
 
 export function reviveSessions(sessions) {
