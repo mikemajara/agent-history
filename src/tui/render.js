@@ -2,7 +2,13 @@ import { formatProject, formatResumeCommand } from "../format.js";
 import { pinMarker } from "../lib/icons.js";
 import { formatMarkdownLines } from "../lib/markdown.js";
 import { freeTextTerms } from "../lib/query.js";
-import { clampSelection, countPendingInScope, getVisibleSessions, leadStatus } from "./state.js";
+import {
+  clampSelection,
+  countPendingInScope,
+  getAgentFilterOptions,
+  getVisibleSessions,
+  leadStatus,
+} from "./state.js";
 
 /** Terminals at or above this width use a side preview; narrower ones stack it. */
 export const PREVIEW_SIDE_MIN_WIDTH = 116;
@@ -306,12 +312,20 @@ function styleSessionRow(row, { selected, zebra }) {
 
 function renderControls(state) {
   const filterOptions = state.scope === "cwd" ? "[Cwd] All" : "Cwd [All]";
+  const agentOptions = getAgentFilterOptions(state)
+    .map((agent) => {
+      const label = agent === "all" ? "All" : (AGENT_BADGES[agent]?.label ?? agent);
+      return agent === state.agentFilter ? `[${label}]` : label;
+    })
+    .join(" ");
   const sortOptions = state.sort === "created" ? "Updated [Created]" : "[Updated] Created";
   const filter = `Filter: ${filterOptions}`;
+  const agent = `Harness: ${agentOptions}`;
   const sort = `Sort: ${sortOptions}`;
   const filterPart = state.focusedControl === "filter" ? inverse(filter) : filter;
+  const agentPart = state.focusedControl === "agent" ? inverse(agent) : agent;
   const sortPart = state.focusedControl === "sort" ? inverse(sort) : sort;
-  return `${filterPart}   ${sortPart}`;
+  return `${filterPart}   ${agentPart}   ${sortPart}`;
 }
 
 /**

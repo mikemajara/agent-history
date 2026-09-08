@@ -89,7 +89,7 @@ test("100x30 frame stacks the preview pane and uses the indexed list columns", (
   assert.equal(state.previewPane, true);
   assert.equal(lines[0].trim(), "Resume a previous session");
   assert.match(lines[2], new RegExp(`┌ / .*${SEARCH_PLACEHOLDER.split(" · ")[0]}`));
-  assert.match(lines[3], /Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
+  assert.match(lines[3], /Filter: Cwd \[All\]   Harness: \[All\] claude   Sort: \[Updated\] Created/);
   assert.ok(header, "expected column headers");
   assert.match(header, /AGE\s+AGENT\s+META\s+DIRECTORY\s+PROMPT\s+TURNS/);
   assert.ok(row, "expected a compact session row");
@@ -128,14 +128,14 @@ test("focused filter/sort control is inverse-highlighted", () => {
     const filterFocused = renderBrowserFrame(state, 100, 30);
     assert.match(
       filterFocused,
-      /\x1b\[7mFilter: Cwd \[All\]\x1b\[0m {3}Sort: \[Updated\] Created/,
+      /\x1b\[7mFilter: Cwd \[All\]\x1b\[0m {3}Harness: \[All\] claude {3}Sort: \[Updated\] Created/,
     );
 
     state.focusedControl = "sort";
     const sortFocused = renderBrowserFrame(state, 100, 30);
     assert.match(
       sortFocused,
-      /Filter: Cwd \[All\] {3}\x1b\[7mSort: \[Updated\] Created\x1b\[0m/,
+      /Filter: Cwd \[All\] {3}Harness: \[All\] claude {3}\x1b\[7mSort: \[Updated\] Created\x1b\[0m/,
     );
   } finally {
     if (previous === undefined) delete process.env.NO_COLOR;
@@ -177,7 +177,7 @@ test("60x16 frame drops directory and keeps headers within the terminal", () => 
   assert.equal(lines[0].trim(), "Resume a previous session");
   assert.match(lines[2], /┌ \//);
   assert.match(lines[2], /Search titles/);
-  assert.match(lines[3], /Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
+  assert.match(lines[3], /Filter: Cwd \[All\]   Harness: \[All\] claude   Sort: \[Update/);
   assert.ok(header);
   assert.match(header, /AGE\s+AGENT\s+META\s+PROMPT\s+TURNS/);
   assert.equal(header.includes("DIRECTORY"), false);
@@ -246,6 +246,7 @@ test("help text still documents Enter resume and Ctrl+n", () => {
   assert.match(state.message, /Enter resume/);
   assert.match(state.message, /Ctrl\+n new in directory/);
   assert.match(state.message, /Ctrl\+p toggle preview pane/);
+  assert.match(state.message, /Tab focus scope\/harness\/sort/);
 });
 
 test("wide terminals render a side preview pane beside the list", () => {
