@@ -44,11 +44,11 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
     io.stdin.setRawMode(false);
     io.stdin.pause();
     // Leave the alternate screen so the prior scrollback/prompt is restored.
-    io.stdout.write("\x1b[?25h\x1b[?1049l");
+    io.stdout.write("\x1b[?25h\x1b[?2004l\x1b[?1049l");
   };
 
   // Draw on the alternate screen so quitting restores the user's prior terminal.
-  io.stdout.write("\x1b[?1049h\x1b[?25l\x1b[H");
+  io.stdout.write("\x1b[?1049h\x1b[?2004h\x1b[?25l\x1b[H");
 
   const render = () => {
     const width = Math.max(io.stdout.columns ?? 100, 60);
