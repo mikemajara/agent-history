@@ -83,16 +83,23 @@ export async function buildIndex(sessions) {
 
   const docs = sessions.map((s, i) => {
     const turns = allTurns[i];
+    const id = typeof s.id === "string" ? s.id : "";
     const metadataText = [
       s.agent,
-      s.id,
+      id,
       s.cwd,
       s.preview,
       s.metadata ? JSON.stringify(s.metadata) : "",
     ].filter(Boolean).join(" ");
     const fullText = `${metadataText} ${turns.map((t) => t.text).join(" ")}`;
     const tokens = tokenize(fullText);
-    return { id: s.id, tokens, length: tokens.length, turns };
+    return {
+      id,
+      displayId: id.length > 6 ? id.slice(-6) : id,
+      tokens,
+      length: tokens.length,
+      turns,
+    };
   });
 
   const termDf = new Map();
@@ -114,26 +121,29 @@ export function search(index, query, sessions) {
   if (!index || !query.trim()) return [];
 
   const queryTokens = tokenize(query);
-  if (queryTokens.length === 0) return [];
 
   const { docs, termDf, avgLen, N } = index;
   const scores = [];
+  const normalizedQuery = query.trim().toLowerCase();
 
   for (let i = 0; i < docs.length; i++) {
     const doc = docs[i];
-    if (doc.length === 0) continue;
+    const idMatch = normalizedQuery.length > 0
+      && (doc.id.toLowerCase().startsWith(normalizedQuery)
+        || doc.displayId.toLowerCase().startsWith(normalizedQuery));
+    if (doc.length === 0 && !idMatch) continue;
 
     // Filter: every query token must appear as substring somewhere in this doc's full text
     const docText = doc.tokens.join(" ");
     const passesFilter = queryTokens.every((term) => docText.includes(term));
-    if (!passesFilter) continue;
+    if (!passesFilter && !idMatch) continue;
 
     const tf = new Map();
     for (const token of doc.tokens) {
       tf.set(token, (tf.get(token) ?? 0) + 1);
     }
 
-    let score = 0;
+    let score = idMatch ? 1 : 0;
     for (const term of queryTokens) {
       const df = termDf.get(term) ?? 0;
       if (df === 0) continue;
