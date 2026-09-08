@@ -121,7 +121,6 @@ export function search(index, query, sessions) {
   if (!index || !query.trim()) return [];
 
   const queryTokens = tokenize(query);
-  if (queryTokens.length === 0) return [];
 
   const { docs, termDf, avgLen, N } = index;
   const scores = [];
