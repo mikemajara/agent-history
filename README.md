@@ -20,6 +20,9 @@ npx skills add mikemajara/agent-history
 
 ## Local dev
 
+Requires Node.js 20 or newer. Interactive search paste uses Node's bracketed-paste
+keypress events, which are not reliably available on Node.js 18.
+
 From this repo, point the global `ah` / `agent-history` commands at your working tree, then remove the global link when you are done:
 
 ```bash
