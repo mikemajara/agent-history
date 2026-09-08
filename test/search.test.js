@@ -26,3 +26,25 @@ test("search indexes normalized metadata and Cursor payload turns", async () => 
   assert.equal(search(index, "feature-branch", sessions)[0]?.session.id, "cursor-123");
   assert.equal(search(index, "payload answer", sessions)[0]?.snippet.role, "assistant");
 });
+
+test("search matches full, prefix, and displayed suffix session ids", async () => {
+  const sessions = [
+    {
+      agent: "codex",
+      id: "session-ABC123",
+      cwd: "/tmp/search-project",
+      preview: "first session",
+    },
+    {
+      agent: "cursor",
+      id: "other-XYZ789",
+      cwd: "/tmp/search-project",
+      preview: "second session",
+    },
+  ];
+  const index = await buildIndex(sessions);
+
+  assert.equal(search(index, "SESSION-ABC123", sessions)[0]?.session.id, "session-ABC123");
+  assert.equal(search(index, "session-ab", sessions)[0]?.session.id, "session-ABC123");
+  assert.equal(search(index, "bc123", sessions)[0]?.session.id, "session-ABC123");
+});
