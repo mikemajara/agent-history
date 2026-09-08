@@ -46,5 +46,13 @@ test("search matches full, prefix, and displayed suffix session ids", async () =
 
   assert.equal(search(index, "SESSION-ABC123", sessions)[0]?.session.id, "session-ABC123");
   assert.equal(search(index, "session-ab", sessions)[0]?.session.id, "session-ABC123");
-  assert.equal(search(index, "bc123", sessions)[0]?.session.id, "session-ABC123");
+  assert.equal(search(index, "abc123", sessions)[0]?.session.id, "session-ABC123");
+});
+
+test("search handles short or unusual session ids without crashing", async () => {
+  const sessions = [{ agent: "fx", id: "x", preview: "short session" }];
+  const index = await buildIndex(sessions);
+
+  assert.equal(search(index, "x", sessions)[0]?.session.id, "x");
+  assert.deepEqual(search(index, "missing", sessions), []);
 });
