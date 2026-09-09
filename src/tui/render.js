@@ -1,5 +1,6 @@
 import { formatProject, formatResumeCommand } from "../format.js";
 import { pinMarker } from "../lib/icons.js";
+import { hasHarnessIcon, harnessIconSlotWidth, useTerminalImages } from "../lib/terminal-image.js";
 import { formatMarkdownLines } from "../lib/markdown.js";
 import { freeTextTerms } from "../lib/query.js";
 import {
@@ -17,7 +18,7 @@ export const SEARCH_PLACEHOLDER = "Search titles, messages, paths · dir: · dat
 
 const PROMPT_WORD_LIMIT = 6;
 const AGE_WIDTH = 9;
-const AGENT_WIDTH = 7;
+const AGENT_LABEL_WIDTH = 7;
 const FLAG_WIDTH = 9;
 const TURNS_WIDTH = 5;
 
@@ -29,6 +30,18 @@ export const AGENT_BADGES = {
   opencode: { label: "open", color: "35" }, // purple
   fx: { label: "fx", color: "30" }, // black
 };
+
+function agentColumnWidth() {
+  return useTerminalImages() ? harnessIconSlotWidth() + AGENT_LABEL_WIDTH : AGENT_LABEL_WIDTH;
+}
+
+/**
+ * @param {string | undefined} agent
+ */
+function harnessOptionLabel(agent) {
+  if (agent === "all") return "All";
+  return AGENT_BADGES[agent]?.label ?? agent;
+}
 
 export function renderBrowserFrame(state, width, height) {
   const visibleSessions = getVisibleSessions(state);
@@ -151,6 +164,77 @@ export function renderBrowserFrame(state, width, height) {
 }
 
 /**
+ * Same frame as renderBrowserFrame, plus Kitty/iTerm placements (1-based cells).
+ *
+ * @param {object} state
+ * @param {number} width
+ * @param {number} height
+ * @returns {{ text: string, images: { row: number, col: number, agent: string }[] }}
+ */
+export function renderBrowserView(state, width, height) {
+  const text = renderBrowserFrame(state, width, height);
+  if (!useTerminalImages()) {
+    return { text, images: [] };
+  }
+
+  const visibleSessions = getVisibleSessions(state);
+  clampSelection(state, visibleSessions);
+  const previewOn = state.previewPane !== false;
+  const sidePreview = previewOn && width >= PREVIEW_SIDE_MIN_WIDTH;
+  const footerRows = 3;
+  const headerLineCount = 5;
+  const bodyBudget = Math.max(height - footerRows - headerLineCount, 1);
+
+  let listWidth = width;
+  let listBudget = bodyBudget;
+  let previewBudget = 0;
+  if (previewOn && sidePreview) {
+    listWidth = Math.max(40, Math.floor(width * 0.62));
+    listBudget = bodyBudget;
+    previewBudget = bodyBudget;
+  } else if (previewOn) {
+    const desiredPreview = Math.min(18, Math.max(10, Math.floor(bodyBudget * 0.65)));
+    listBudget = Math.max(2, bodyBudget - desiredPreview - 1);
+    previewBudget = Math.max(1, bodyBudget - listBudget - 1);
+  }
+
+  const layout = listColumnLayout(listWidth);
+  const rowBudget = Math.max(1, listBudget - 1);
+  const start = Math.max(
+    0,
+    Math.min(state.selectedIndex - Math.floor(rowBudget / 2), visibleSessions.length - rowBudget),
+  );
+  const visibleWindow = visibleSessions.slice(start, start + rowBudget);
+  const images = [];
+
+  for (let windowIndex = 0; windowIndex < visibleWindow.length; windowIndex++) {
+    const agent = visibleWindow[windowIndex].agent;
+    if (!hasHarnessIcon(agent)) continue;
+    const row = headerLineCount + 1 + windowIndex + 1;
+    if (row <= height) {
+      images.push({ row, col: layout.columns.agent + 1, agent });
+    }
+  }
+
+  const selectedSession = visibleSessions[state.selectedIndex];
+  if (previewOn && selectedSession && hasHarnessIcon(selectedSession.agent)) {
+    const providerIndex = selectedSession.id ? 1 : 0;
+    if (providerIndex < previewBudget) {
+      const row0 = sidePreview
+        ? headerLineCount + providerIndex
+        : headerLineCount + listBudget + 1 + providerIndex;
+      const col0 = sidePreview ? listWidth + 1 + 14 : 14;
+      const row = row0 + 1;
+      if (row <= height) {
+        images.push({ row, col: col0 + 1, agent: selectedSession.agent });
+      }
+    }
+  }
+
+  return { text, images };
+}
+
+/**
  * @param {boolean} narrow
  * @returns {string}
  */
@@ -205,8 +289,9 @@ export function keycap(label, options = {}) {
  */
 export function listColumnLayout(width) {
   const showDirectory = width >= 80;
+  const agentWidth = agentColumnWidth();
   // marker(1) + sp + age + sp + agent + sp + flag + sp
-  const prefixWidth = 1 + 1 + AGE_WIDTH + 1 + AGENT_WIDTH + 1 + FLAG_WIDTH + 1;
+  const prefixWidth = 1 + 1 + AGE_WIDTH + 1 + agentWidth + 1 + FLAG_WIDTH + 1;
   const turnsTail = 1 + TURNS_WIDTH;
   const flex = Math.max(8, width - prefixWidth - turnsTail);
 
@@ -219,7 +304,7 @@ export function listColumnLayout(width) {
     promptWidth = Math.max(8, flex - 1 - directoryWidth);
   }
 
-  const flagStart = 2 + AGE_WIDTH + 1 + AGENT_WIDTH + 1;
+  const flagStart = 2 + AGE_WIDTH + 1 + agentWidth + 1;
   const directoryStart = prefixWidth;
   const promptStart = showDirectory ? directoryStart + directoryWidth + 1 : prefixWidth;
   const turnsStart = promptStart + promptWidth + 1;
@@ -234,7 +319,7 @@ export function listColumnLayout(width) {
 
   return {
     age: AGE_WIDTH,
-    agent: AGENT_WIDTH,
+    agent: agentWidth,
     flag: FLAG_WIDTH,
     prompt: promptWidth,
     turns: TURNS_WIDTH,
@@ -264,7 +349,11 @@ function renderSessionRow(session, state, layout, selected) {
   const timestamp = state.sort === "created" ? session.startedAt ?? session.updatedAt : session.updatedAt ?? session.startedAt;
   const age = formatRelativeAge(timestamp, state.now ?? new Date()).padEnd(layout.age, " ");
   // Selected rows use plain badge text so inverse styling stays readable.
-  const agent = formatAgentBadge(session.agent, { width: layout.agent, color: !selected });
+  const agent = formatAgentBadge(session.agent, {
+    width: AGENT_LABEL_WIDTH,
+    color: !selected,
+    iconSlot: useTerminalImages(),
+  });
   const flag = formatFlag(session).padEnd(layout.flag, " ");
   const promptText = state.noPreview ? "-" : promptSnippet(session.preview);
   const prompt = truncateRight(promptText, layout.prompt).padEnd(layout.prompt, " ");
@@ -286,17 +375,20 @@ export function formatFlag(session) {
 
 /**
  * @param {string | undefined} agent
- * @param {{ width?: number, color?: boolean }} [options]
+ * @param {{ width?: number, color?: boolean, iconSlot?: boolean }} [options]
  */
 export function formatAgentBadge(agent, options = {}) {
-  const width = options.width ?? AGENT_WIDTH;
+  const width = options.width ?? AGENT_LABEL_WIDTH;
   const colorizeBadge = options.color !== false;
   const known = AGENT_BADGES[agent];
-  const label = (known?.label ?? String(agent ?? "-")).padEnd(width, " ").slice(0, width);
+  const name = known?.label ?? String(agent ?? "-");
+  const label = name.padEnd(width, " ").slice(0, width);
+  const slot = options.iconSlot ? " ".repeat(harnessIconSlotWidth()) : "";
+  const text = `${slot}${label}`;
   if (!colorizeBadge || process.env.NO_COLOR || !known) {
-    return label;
+    return text;
   }
-  return colorize(known.color, label);
+  return `${slot}${colorize(known.color, label)}`;
 }
 
 function styleSessionRow(row, { selected, zebra }) {
@@ -314,7 +406,7 @@ function renderControls(state) {
   const filterOptions = state.scope === "cwd" ? "[Cwd] All" : "Cwd [All]";
   const agentOptions = getAgentFilterOptions(state)
     .map((agent) => {
-      const label = agent === "all" ? "All" : (AGENT_BADGES[agent]?.label ?? agent);
+      const label = harnessOptionLabel(agent);
       return agent === state.agentFilter ? `[${label}]` : label;
     })
     .join(" ");
@@ -388,7 +480,7 @@ function renderReferenceDetails(session, state, width, budget = Infinity) {
 
   addField("Session:", session.id);
   lines.push(formatFrameLine(
-    ` ${"Provider:".padEnd(12, " ")} ${formatAgentBadge(session.agent)}`,
+    ` ${"Provider:".padEnd(12, " ")} ${formatAgentBadge(session.agent, { iconSlot: useTerminalImages() })}`,
     width,
   ));
   addField("Pinned:", session.pinned ? "yes" : "no");

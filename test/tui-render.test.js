@@ -10,11 +10,18 @@ import {
   PREVIEW_SIDE_MIN_WIDTH,
   promptSnippet,
   renderBrowserFrame,
+  renderBrowserView,
   renderSearchField,
   SEARCH_PLACEHOLDER,
 } from "../src/tui/render.js";
 import { NERD_BOOKMARK, STAR_PIN, pinMarker, resetNerdFontCache } from "../src/lib/icons.js";
+import { resetTerminalImageCache } from "../src/lib/terminal-image.js";
 import { createBrowserState, handleBrowserInput } from "../src/tui/state.js";
+
+process.env.AGENT_HISTORY_NERD_FONTS = "0";
+process.env.AGENT_HISTORY_IMAGES = "0";
+resetNerdFontCache();
+resetTerminalImageCache();
 
 const session = {
   agent: "claude",
@@ -512,6 +519,29 @@ test("formatAgentBadge keeps stable width and colors known agents", () => {
   } finally {
     if (previous === undefined) delete process.env.NO_COLOR;
     else process.env.NO_COLOR = previous;
+  }
+});
+
+test("harness logos reserve an icon slot and emit image placements when enabled", () => {
+  const previous = process.env.AGENT_HISTORY_IMAGES;
+  process.env.AGENT_HISTORY_IMAGES = "kitty";
+  resetTerminalImageCache();
+  try {
+    assert.equal(plain(formatAgentBadge("claude", { iconSlot: true, color: false })), "   claude ");
+    const state = withSearchIndex(createBrowserState([session]));
+    state.now = new Date("2026-07-15T12:00:00Z");
+    const layout = listColumnLayout(100);
+    assert.equal(layout.agent, 10);
+    const { text, images } = renderBrowserView(state, 100, 30);
+    const lines = plain(text).split("\n");
+    const row = findSessionRow(lines, "claude");
+    assert.equal(row.slice(layout.columns.agent, layout.columns.agent + layout.agent), "   claude ");
+    assert.ok(images.some((image) => image.agent === "claude" && image.col === layout.columns.agent + 1));
+    assert.ok(images.some((image) => image.agent === "claude" && image.row >= 7));
+  } finally {
+    if (previous === undefined) delete process.env.AGENT_HISTORY_IMAGES;
+    else process.env.AGENT_HISTORY_IMAGES = previous;
+    resetTerminalImageCache();
   }
 });
 

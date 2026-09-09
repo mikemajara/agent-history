@@ -78,7 +78,7 @@ Running `ah` opens a session browser filtered to the current directory (switch t
 | `Tab` then `←` `→` | Filter Cwd/All or sort Updated/Created |
 | `Esc` / `q` | Clear search or quit |
 
-Rows are a compact table: age, agent, meta (pin/status), directory, first prompt words, turn count. The first status in the list floats above recency and is counted in the footer. The preview pane (on by default) shows metadata and as much of the conversation as fits — beside the list on wide terminals, under it when narrow.
+Rows are a compact table: age, agent, meta (pin/status), directory, first prompt words, turn count. In Kitty, Ghostty, WezTerm, and iTerm2 the agent column paints the harness logo (Claude, Cursor, ChatGPT/Codex, OpenCode) via the terminal image protocol; other terminals keep the text badge. Set `AGENT_HISTORY_IMAGES=0` to force text. The first status in the list floats above recency and is counted in the footer. The preview pane (on by default) shows metadata and as much of the conversation as fits — beside the list on wide terminals, under it when narrow.
 
 Pin and status live in `~/.local/share/agent-history/annotations-v1.json` (override with `AGENT_HISTORY_DATA_DIR`). They are not part of the session cache: `--refresh` and `ah cache clear` leave them in place.
 

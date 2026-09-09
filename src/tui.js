@@ -2,7 +2,8 @@ import readline from "node:readline";
 import { spawn } from "node:child_process";
 import { upsertAnnotation } from "./lib/annotations.js";
 import { createBrowserState, getVisibleSessions, handleBrowserInput, setSearchIndex } from "./tui/state.js";
-import { renderBrowserFrame } from "./tui/render.js";
+import { renderBrowserView } from "./tui/render.js";
+import { deleteVisibleImages, renderImagePlacements } from "./lib/terminal-image.js";
 import { getLaunchCommand } from "./lib/launch-command.js";
 import { buildIndex } from "./lib/search.js";
 
@@ -53,7 +54,8 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
   const render = () => {
     const width = Math.max(io.stdout.columns ?? 100, 60);
     const height = Math.max(io.stdout.rows ?? 24, 10);
-    io.stdout.write(`\x1b[H${renderBrowserFrame(state, width, height)}\x1b[J`);
+    const { text, images } = renderBrowserView(state, width, height);
+    io.stdout.write(`\x1b[H${deleteVisibleImages()}${text}\x1b[J${renderImagePlacements(images)}`);
   };
 
   render();
@@ -156,4 +158,4 @@ export function launchSession(session, io, options = {}) {
   });
 }
 
-export { renderBrowserFrame };
+export { renderBrowserFrame } from "./tui/render.js";

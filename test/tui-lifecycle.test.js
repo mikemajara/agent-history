@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { launchSession, runInteractiveBrowser } from "../src/tui.js";
+import { resetTerminalImageCache } from "../src/lib/terminal-image.js";
+
+process.env.AGENT_HISTORY_IMAGES = "0";
+resetTerminalImageCache();
 
 test("session launcher runs the resume command in its original directory", async () => {
   const cwd = process.cwd();
