@@ -22,6 +22,8 @@ export function createBrowserState(sessions, options = {}) {
     indexing: false,
     rankedSessions: null,
     snippetMap: new Map(),
+    pasteMode: null,
+    pasteBuffer: "",
     now: options.now,
     statuses: Array.isArray(options.statuses) && options.statuses.length
       ? options.statuses
@@ -107,6 +109,37 @@ function sortSessions(sessions, sort, statuses = DEFAULT_STATUSES) {
 }
 
 export function handleBrowserInput(state, str, key) {
+  if (key?.name === "paste-start") {
+    state.pasteMode = state.mode === "search" ? "search" : "ignore";
+    state.pasteBuffer = "";
+    return "ignore";
+  }
+
+  if (state.pasteMode) {
+    if (key?.name === "paste-end") {
+      const pasteMode = state.pasteMode;
+      const pasted = state.pasteBuffer;
+      state.pasteMode = null;
+      state.pasteBuffer = "";
+      if (pasteMode === "search" && pasted) {
+        appendSearchText(state, pasted);
+        return "render";
+      }
+      return "ignore";
+    }
+
+    if (state.pasteMode === "search" && typeof str === "string") {
+      // Keep the terminal paste in memory and update the index only once.
+      // Bound pathological clipboard contents so a paste cannot monopolize
+      // the event loop or produce an unrenderable query.
+      state.pasteBuffer += str;
+      if (state.pasteBuffer.length > MAX_PASTE_LENGTH) {
+        state.pasteBuffer = state.pasteBuffer.slice(0, MAX_PASTE_LENGTH);
+      }
+    }
+    return "ignore";
+  }
+
   const visibleSessions = getVisibleSessions(state);
 
   if (key?.ctrl && key.name === "c") {
@@ -272,15 +305,21 @@ function handleSearchInput(state, str, key, visibleSessions) {
     return "render";
   }
 
-  if (isPrintable(str, key)) {
-    state.search += str;
-    state.selectedIndex = 0;
-    updateSearchResults(state);
-    state.selectedId = getVisibleSessions(state)[0]?.id;
+  if (isSearchText(str, key)) {
+    appendSearchText(state, str);
     return "render";
   }
 
   return "ignore";
+}
+
+const MAX_PASTE_LENGTH = 16_384;
+
+function appendSearchText(state, text) {
+  state.search += text;
+  state.selectedIndex = 0;
+  updateSearchResults(state);
+  state.selectedId = getVisibleSessions(state)[0]?.id;
 }
 
 function toggleSelectedPin(state, visibleSessions) {
@@ -376,6 +415,10 @@ function isBackspace(str, key) {
     || str === "\b";
 }
 
-function isPrintable(str, key) {
-  return typeof str === "string" && str.length === 1 && !key?.ctrl && !key?.meta;
+function isSearchText(str, key) {
+  return typeof str === "string"
+    && str.length > 0
+    && !key?.ctrl
+    && !key?.meta
+    && !/[\u0000-\u0008\u000b-\u001f\u007f]/u.test(str);
 }

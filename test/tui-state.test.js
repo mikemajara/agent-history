@@ -212,6 +212,41 @@ test("slash then typing searches; backspace edits the query", () => {
   assert.equal(state.search, "");
 });
 
+test("bracketed paste batches search updates into one render", () => {
+  const state = createBrowserState(sessions);
+  handleBrowserInput(state, "/", {});
+
+  assert.equal(handleBrowserInput(state, undefined, { name: "paste-start" }), "ignore");
+  assert.equal(handleBrowserInput(state, "multi", {}), "ignore");
+  assert.equal(handleBrowserInput(state, " word\npaste", { name: "space" }), "ignore");
+  assert.equal(state.search, "");
+  assert.equal(handleBrowserInput(state, undefined, { name: "paste-end" }), "render");
+  assert.equal(state.search, "multi word\npaste");
+  assert.equal(state.mode, "search");
+});
+
+test("empty bracketed paste is a no-op and normal typing still works", () => {
+  const state = createBrowserState(sessions);
+  handleBrowserInput(state, "/", {});
+
+  handleBrowserInput(state, undefined, { name: "paste-start" });
+  assert.equal(handleBrowserInput(state, undefined, { name: "paste-end" }), "ignore");
+  assert.equal(state.search, "");
+
+  assert.equal(handleBrowserInput(state, "b", {}), "render");
+  assert.equal(state.search, "b");
+});
+
+test("large bracketed paste is bounded without changing normal search behavior", () => {
+  const state = createBrowserState(sessions);
+  handleBrowserInput(state, "/", {});
+
+  handleBrowserInput(state, undefined, { name: "paste-start" });
+  handleBrowserInput(state, "x".repeat(20_000), {});
+  assert.equal(handleBrowserInput(state, undefined, { name: "paste-end" }), "render");
+  assert.equal(state.search.length, 16_384);
+});
+
 test("cwd scope still applies with dir: token", () => {
   const state = createBrowserState([
     { agent: "codex", id: "in-cwd", cwd: "/tmp/project", preview: "alpha" },
