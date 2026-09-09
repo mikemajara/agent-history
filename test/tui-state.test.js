@@ -66,11 +66,20 @@ test("arrow keys move the list even when readline only provides the CSI sequence
   assert.equal(state.selectedIndex, 0);
 });
 
-test("left and right arrows change filter/sort rather than the selected row", () => {
+test("left and right arrows change the focused filter rather than the selected row", () => {
   const state = createBrowserState(sessions, { initialScope: "all" });
   assert.equal(handleBrowserInput(state, undefined, { name: "right" }), "render");
   assert.equal(state.scope, "cwd");
   assert.equal(state.selectedIndex, 0);
+
+  assert.equal(handleBrowserInput(state, undefined, { name: "tab" }), "render");
+  assert.equal(state.focusedControl, "agent");
+  assert.equal(handleBrowserInput(state, undefined, { name: "right" }), "render");
+  assert.equal(state.agentFilter, "cursor");
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["def456"]);
+
+  assert.equal(handleBrowserInput(state, undefined, { name: "tab" }), "render");
+  assert.equal(state.focusedControl, "sort");
 });
 
 test("preview pane starts on and ctrl+p toggles it without losing selection", () => {
@@ -172,6 +181,8 @@ test("current directory is the default scope and controls operate over all sessi
   assert.equal(handleBrowserInput(state, undefined, { name: "right" }), "render");
   assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["new", "old"]);
 
+  assert.equal(handleBrowserInput(state, undefined, { name: "tab" }), "render");
+  assert.equal(state.focusedControl, "agent");
   assert.equal(handleBrowserInput(state, undefined, { name: "tab" }), "render");
   assert.equal(state.focusedControl, "sort");
   assert.equal(handleBrowserInput(state, undefined, { name: "right" }), "render");
@@ -282,6 +293,31 @@ test("cwd scope still applies with date:today", () => {
 
   state.search = "date:today";
   assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["today-cwd"]);
+});
+
+test("harness filter composes with cwd and search and resets on new state", () => {
+  const state = createBrowserState([
+    { agent: "codex", id: "codex-cwd", cwd: "/tmp/project", preview: "build parser" },
+    { agent: "cursor", id: "cursor-cwd", cwd: "/tmp/project", preview: "build UI" },
+    { agent: "codex", id: "codex-other", cwd: "/tmp/other", preview: "build parser" },
+  ], { currentCwd: "/tmp/project" });
+
+  state.focusedControl = "agent";
+  handleBrowserInput(state, undefined, { name: "right" });
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["cursor-cwd"]);
+
+  state.search = "cursor";
+  assert.deepEqual(getVisibleSessions(state).map((session) => session.id), ["cursor-cwd"]);
+  state.agentFilter = "codex";
+  assert.deepEqual(getVisibleSessions(state), []);
+  assert.equal(createBrowserState(state.sessions, { currentCwd: "/tmp/project" }).agentFilter, "all");
+});
+
+test("agent filter offers only indexed providers and all when none are present", () => {
+  const state = createBrowserState([{ agent: "unknown", id: "one" }]);
+  assert.equal(handleBrowserInput(state, undefined, { name: "tab" }), "render");
+  assert.equal(handleBrowserInput(state, undefined, { name: "right" }), "render");
+  assert.equal(state.agentFilter, "all");
 });
 
 test("free text works with tokens and ignores invalid date tokens", () => {

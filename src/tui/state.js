@@ -11,6 +11,7 @@ export function createBrowserState(sessions, options = {}) {
     scope: options.initialScope ?? (options.currentCwd ? "cwd" : "all"),
     sort: "updated",
     focusedControl: "filter",
+    agentFilter: "all",
     selectedIndex: 0,
     selectedId: sessions[0]?.id,
     previewPane: true,
@@ -33,7 +34,7 @@ export function createBrowserState(sessions, options = {}) {
 
 export function getVisibleSessions(state) {
   const now = state.now ?? new Date();
-  const scopedSessions = getScopedSessions(state);
+  const scopedSessions = getAgentFilteredSessions(state);
   const parsed = parseQuery(state.search, now);
   const tokenFiltered = scopedSessions.filter((session) => matchesQueryTokens(session, parsed, now));
   let visibleSessions = tokenFiltered;
@@ -56,6 +57,16 @@ export function getScopedSessions(state) {
   }
 
   return state.sessions.filter((session) => matchesSessionCwd(session, state.currentCwd));
+}
+
+export function getAgentFilterOptions(state) {
+  const agents = new Set(state.sessions.map((session) => session.agent).filter(Boolean));
+  return ["all", ...["cursor", "claude", "codex", "opencode", "fx"].filter((agent) => agents.has(agent))];
+}
+
+export function getAgentFilteredSessions(state, sessions = getScopedSessions(state)) {
+  if (state.agentFilter === "all") return sessions;
+  return sessions.filter((session) => session.agent === state.agentFilter);
 }
 
 export function leadStatus(state) {
@@ -200,13 +211,15 @@ function handleNormalInput(state, str, key, visibleSessions) {
   }
 
   if (key?.name === "tab") {
-    state.focusedControl = state.focusedControl === "filter" ? "sort" : "filter";
+    state.focusedControl = nextFocusedControl(state.focusedControl);
     return "render";
   }
 
   if (key?.name === "left" || key?.name === "right") {
     if (state.focusedControl === "filter") {
       state.scope = state.scope === "all" ? "cwd" : "all";
+    } else if (state.focusedControl === "agent") {
+      cycleAgentFilter(state, key.name === "right" ? 1 : -1);
     } else {
       state.sort = state.sort === "updated" ? "created" : "updated";
     }
@@ -222,7 +235,7 @@ function handleNormalInput(state, str, key, visibleSessions) {
 
   if (str === "?" || key?.sequence === "?") {
     state.message =
-      "Controls: j/k/arrows navigate, / search, Ctrl+b pin, Ctrl+t status, Ctrl+p toggle preview pane, Enter resume, Ctrl+n new in directory, Esc clear+leave search, Ctrl+u clear, q quit | Rows: age · agent · meta · directory · prompt · turns | Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd (preview jumps to matches)";
+      "Controls: j/k/arrows navigate, Tab focus scope/harness/sort, ←/→ change focused option, / search, Ctrl+b pin, Ctrl+t status, Ctrl+p toggle preview pane, Enter resume, Ctrl+n new in directory, Esc clear+leave search, Ctrl+u clear, q quit | Rows: age · agent · meta · directory · prompt · turns | Search: free text + dir:path date:today|yesterday|week|<Nh|<Nd (preview jumps to matches)";
     return "render";
   }
 
@@ -268,13 +281,15 @@ function handleSearchInput(state, str, key, visibleSessions) {
   }
 
   if (key?.name === "tab") {
-    state.focusedControl = state.focusedControl === "filter" ? "sort" : "filter";
+    state.focusedControl = nextFocusedControl(state.focusedControl);
     return "render";
   }
 
   if (key?.name === "left" || key?.name === "right") {
     if (state.focusedControl === "filter") {
       state.scope = state.scope === "all" ? "cwd" : "all";
+    } else if (state.focusedControl === "agent") {
+      cycleAgentFilter(state, key.name === "right" ? 1 : -1);
     } else {
       state.sort = state.sort === "updated" ? "created" : "updated";
     }
@@ -362,6 +377,19 @@ export function clampSelection(state, visibleSessions = getVisibleSessions(state
 
 function syncSelectedId(state, visibleSessions) {
   clampSelection(state, visibleSessions);
+}
+
+function nextFocusedControl(control) {
+  if (control === "filter") return "agent";
+  if (control === "agent") return "sort";
+  return "filter";
+}
+
+function cycleAgentFilter(state, delta) {
+  const options = getAgentFilterOptions(state);
+  const current = Math.max(0, options.indexOf(state.agentFilter));
+  state.agentFilter = options[(current + delta + options.length) % options.length];
+  syncSelectedId(state, getVisibleSessions(state));
 }
 
 function clearSearch(state) {

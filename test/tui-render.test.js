@@ -10,11 +10,18 @@ import {
   PREVIEW_SIDE_MIN_WIDTH,
   promptSnippet,
   renderBrowserFrame,
+  renderBrowserView,
   renderSearchField,
   SEARCH_PLACEHOLDER,
 } from "../src/tui/render.js";
 import { NERD_BOOKMARK, STAR_PIN, pinMarker, resetNerdFontCache } from "../src/lib/icons.js";
+import { resetTerminalImageCache } from "../src/lib/terminal-image.js";
 import { createBrowserState, handleBrowserInput } from "../src/tui/state.js";
+
+process.env.AGENT_HISTORY_NERD_FONTS = "0";
+process.env.AGENT_HISTORY_IMAGES = "0";
+resetNerdFontCache();
+resetTerminalImageCache();
 
 const session = {
   agent: "claude",
@@ -89,7 +96,7 @@ test("100x30 frame stacks the preview pane and uses the indexed list columns", (
   assert.equal(state.previewPane, true);
   assert.equal(lines[0].trim(), "Resume a previous session");
   assert.match(lines[2], new RegExp(`┌ / .*${SEARCH_PLACEHOLDER.split(" · ")[0]}`));
-  assert.match(lines[3], /Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
+  assert.match(lines[3], /Filter: Cwd \[All\]   Harness: \[All\] claude   Sort: \[Updated\] Created/);
   assert.ok(header, "expected column headers");
   assert.match(header, /AGE\s+AGENT\s+META\s+DIRECTORY\s+PROMPT\s+TURNS/);
   assert.ok(row, "expected a compact session row");
@@ -128,14 +135,14 @@ test("focused filter/sort control is inverse-highlighted", () => {
     const filterFocused = renderBrowserFrame(state, 100, 30);
     assert.match(
       filterFocused,
-      /\x1b\[7mFilter: Cwd \[All\]\x1b\[0m {3}Sort: \[Updated\] Created/,
+      /\x1b\[7mFilter: Cwd \[All\]\x1b\[0m {3}Harness: \[All\] claude {3}Sort: \[Updated\] Created/,
     );
 
     state.focusedControl = "sort";
     const sortFocused = renderBrowserFrame(state, 100, 30);
     assert.match(
       sortFocused,
-      /Filter: Cwd \[All\] {3}\x1b\[7mSort: \[Updated\] Created\x1b\[0m/,
+      /Filter: Cwd \[All\] {3}Harness: \[All\] claude {3}\x1b\[7mSort: \[Updated\] Created\x1b\[0m/,
     );
   } finally {
     if (previous === undefined) delete process.env.NO_COLOR;
@@ -177,7 +184,7 @@ test("60x16 frame drops directory and keeps headers within the terminal", () => 
   assert.equal(lines[0].trim(), "Resume a previous session");
   assert.match(lines[2], /┌ \//);
   assert.match(lines[2], /Search titles/);
-  assert.match(lines[3], /Filter: Cwd \[All\]   Sort: \[Updated\] Created/);
+  assert.match(lines[3], /Filter: Cwd \[All\]   Harness: \[All\] claude   Sort: \[Update/);
   assert.ok(header);
   assert.match(header, /AGE\s+AGENT\s+META\s+PROMPT\s+TURNS/);
   assert.equal(header.includes("DIRECTORY"), false);
@@ -246,6 +253,7 @@ test("help text still documents Enter resume and Ctrl+n", () => {
   assert.match(state.message, /Enter resume/);
   assert.match(state.message, /Ctrl\+n new in directory/);
   assert.match(state.message, /Ctrl\+p toggle preview pane/);
+  assert.match(state.message, /Tab focus scope\/harness\/sort/);
 });
 
 test("wide terminals render a side preview pane beside the list", () => {
@@ -511,6 +519,29 @@ test("formatAgentBadge keeps stable width and colors known agents", () => {
   } finally {
     if (previous === undefined) delete process.env.NO_COLOR;
     else process.env.NO_COLOR = previous;
+  }
+});
+
+test("harness logos reserve an icon slot and emit image placements when enabled", () => {
+  const previous = process.env.AGENT_HISTORY_IMAGES;
+  process.env.AGENT_HISTORY_IMAGES = "kitty";
+  resetTerminalImageCache();
+  try {
+    assert.equal(plain(formatAgentBadge("claude", { iconSlot: true, color: false })), "   claude ");
+    const state = withSearchIndex(createBrowserState([session]));
+    state.now = new Date("2026-07-15T12:00:00Z");
+    const layout = listColumnLayout(100);
+    assert.equal(layout.agent, 10);
+    const { text, images } = renderBrowserView(state, 100, 30);
+    const lines = plain(text).split("\n");
+    const row = findSessionRow(lines, "claude");
+    assert.equal(row.slice(layout.columns.agent, layout.columns.agent + layout.agent), "   claude ");
+    assert.ok(images.some((image) => image.agent === "claude" && image.col === layout.columns.agent + 1));
+    assert.ok(images.some((image) => image.agent === "claude" && image.row >= 7));
+  } finally {
+    if (previous === undefined) delete process.env.AGENT_HISTORY_IMAGES;
+    else process.env.AGENT_HISTORY_IMAGES = previous;
+    resetTerminalImageCache();
   }
 });
 
