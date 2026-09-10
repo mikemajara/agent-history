@@ -47,13 +47,25 @@ Statuses are an ordered list of strings. Defaults: `pending`, `parked`.
 The first name floats and is counted in the TUI footer.
 
 ```bash
-ah status <id>              # show
-ah status <id> pending      # set (must be in the configured list)
+# From the session's project directory, target its newest session:
+ah status --last --clear    # mark done (clear status)
+ah status --last pending    # mark pending
+ah status --last parked     # mark parked
+
+# If the session id is already known:
 ah status <id> --clear
+ah status <id> pending      # must be in the configured list
+ah status <id> parked
+
+# Inspect the selected session's current status:
+ah status <id>
 ```
 
-Read allowed names from `ah --help` (the `status` usage line) or from config.
-Do not invent names that are not in that list.
+`--last` means the newest session in the current directory by updated time.
+With no sessions in the directory it fails without writing an annotation.
+Read allowed names from `ah status` or `ah --help`; do not invent names that
+are not in the configured list. “Done” means `--clear`, not a `done` status
+unless `done` is configured.
 
 ## Override the status list
 

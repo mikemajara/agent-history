@@ -37,13 +37,14 @@ Usage:
   agent-history resume <id>   Print the resume command for a session
   agent-history pin <id>      Pin a session so it floats in the browser
   agent-history unpin <id>    Remove the pin
-  agent-history status <id> [${statusValues}|--clear]
+  agent-history status [<id>|--last] [${statusValues}|--clear]
                               Show or set follow-up status
 
 Also available as: ah
 
 Options:
   --last                      Launch the newest session for the current directory
+                              With status, target the newest session in this directory
   --new                       With --last, start a new session instead of resuming
   --no-preview                Hide prompt/conversation text (list, ls, and details pane)
   --refresh                   Rebuild the local session cache before listing/browsing
@@ -131,7 +132,7 @@ export async function main(argv, io, options = {}) {
     return;
   }
 
-  if (args.includes("--last") || args.includes("--new")) {
+  if (command !== "status" && (args.includes("--last") || args.includes("--new"))) {
     if (args.includes("--new") && !args.includes("--last")) {
       io.stderr.write("`--new` requires `--last` (example: agent-history --last --new).\n");
       process.exitCode = 1;
@@ -196,10 +197,25 @@ export async function main(argv, io, options = {}) {
 
   if (command === "status") {
     const clear = args.includes("--clear");
-    const statusArgs = args.slice(1).filter((value) => value !== "--clear");
-    const id = statusArgs[0];
-    const value = statusArgs[1];
-    const session = await findSessionOrExit(id, io, { ...options, refresh });
+    const useLast = args.includes("--last");
+    const statusArgs = args.slice(1).filter(
+      (value) => value !== "--clear" && value !== "--last",
+    );
+
+    if (!useLast && statusArgs.length === 0) {
+      io.stdout.write(
+        `Configured statuses: ${statuses.join(", ")}\n` +
+        "Usage: agent-history status <id> [status|--clear]\n" +
+        "       agent-history status --last [status|--clear]\n",
+      );
+      return;
+    }
+
+    const id = useLast ? undefined : statusArgs[0];
+    const value = useLast ? statusArgs[0] : statusArgs[1];
+    const session = useLast
+      ? await findLastSessionForStatus(io, { ...options, refresh })
+      : await findSessionOrExit(id, io, { ...options, refresh });
     if (!session) return;
 
     if (clear || value) {
@@ -274,6 +290,27 @@ async function findSessionOrExit(inputId, io, options = {}) {
     return undefined;
   }
   return session;
+}
+
+async function findLastSessionForStatus(io, options = {}) {
+  const load = options.getSessionsForCwd ?? getSessionsForCwd;
+  const sessions = await load(undefined, options);
+  const session = sessions.reduce((newest, candidate) => {
+    if (!newest) return candidate;
+    return sessionTime(candidate) > sessionTime(newest) ? candidate : newest;
+  }, undefined);
+
+  if (!session) {
+    io.stderr.write("No sessions found in this directory.\n");
+    process.exitCode = 1;
+    return undefined;
+  }
+  return session;
+}
+
+function sessionTime(session) {
+  const value = session.updatedAt ?? session.startedAt;
+  return value instanceof Date ? value.getTime() : Date.parse(value ?? "") || 0;
 }
 
 function formatAnnotationLine(session) {
