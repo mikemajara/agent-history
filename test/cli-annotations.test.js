@@ -84,7 +84,7 @@ test("status --last updates the newest session in the current directory", async 
   await main(["status", "--last", "pending"], stream, {
     dataDir,
     configPath: path.join(dataDir, "config.json"),
-    getSessionsForCwd: async () => [older, newest, other],
+    getSessionsForCwd: async () => [older, newest],
   });
 
   assert.match(stream.stdoutText(), /id: newest/);

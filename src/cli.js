@@ -202,7 +202,7 @@ export async function main(argv, io, options = {}) {
       (value) => value !== "--clear" && value !== "--last",
     );
 
-    if (!useLast && statusArgs.length === 0) {
+    if (!useLast && statusArgs.length === 0 && !clear) {
       io.stdout.write(
         `Configured statuses: ${statuses.join(", ")}\n` +
         "Usage: agent-history status <id> [status|--clear]\n" +
