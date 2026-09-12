@@ -59,6 +59,74 @@ test("status --clear removes status and leaves the pin", async () => {
   assert.match(cleared.stdoutText(), /pinned: yes/);
 });
 
+test("status --last updates the newest session in the current directory", async () => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-history-cli-last-status-"));
+  const newest = {
+    agent: "cursor",
+    id: "newest",
+    cwd: "/tmp/project",
+    updatedAt: new Date("2026-09-02T00:00:00Z"),
+  };
+  const older = {
+    agent: "claude",
+    id: "older",
+    cwd: "/tmp/project",
+    updatedAt: new Date("2026-09-01T00:00:00Z"),
+  };
+  const other = {
+    agent: "codex",
+    id: "other",
+    cwd: "/tmp/other",
+    updatedAt: new Date("2026-09-03T00:00:00Z"),
+  };
+  const stream = io();
+  process.exitCode = 0;
+  await main(["status", "--last", "pending"], stream, {
+    dataDir,
+    configPath: path.join(dataDir, "config.json"),
+    getSessionsForCwd: async () => [older, newest],
+  });
+
+  assert.match(stream.stdoutText(), /id: newest/);
+  assert.match(stream.stdoutText(), /status: pending/);
+  assert.equal((await readAnnotations({ dataDir }))["cursor:newest"].status, "pending");
+  assert.equal((await readAnnotations({ dataDir }))["claude:older"], undefined);
+  assert.equal(process.exitCode, 0);
+});
+
+test("status --last --clear clears the newest session and does not write without a session", async () => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-history-cli-last-clear-"));
+  const stream = io();
+  process.exitCode = 0;
+  await main(["status", "--last", "--clear"], stream, {
+    dataDir,
+    getSessionsForCwd: async () => [{
+      agent: "cursor",
+      id: "newest",
+      updatedAt: new Date("2026-09-02T00:00:00Z"),
+      status: "parked",
+    }],
+  });
+  assert.match(stream.stdoutText(), /status: -/);
+  assert.deepEqual(await readAnnotations({ dataDir }), {});
+
+  const errors = io();
+  await main(["status", "--last", "--clear"], errors, {
+    dataDir,
+    getSessionsForCwd: async () => [],
+  });
+  assert.match(errors.stderrText(), /No sessions found in this directory/);
+  assert.equal(process.exitCode, 1);
+  assert.deepEqual(await readAnnotations({ dataDir }), {});
+});
+
+test("status with no arguments lists configured names", async () => {
+  const stream = await run(["status"], await fs.mkdtemp(path.join(os.tmpdir(), "agent-history-cli-status-help-")));
+  assert.match(stream.stdoutText(), /Configured statuses: pending, parked/);
+  assert.match(stream.stdoutText(), /status --last/);
+  assert.equal(process.exitCode, 0);
+});
+
 test("unknown id does not write the overlay", async () => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-history-cli-ann-"));
   const stream = await run(["pin", "missing"], dataDir);
