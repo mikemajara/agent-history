@@ -62,7 +62,10 @@ ah ls --no-preview          # table without preview column text
 ah show <id>                # details
 ah resume <id>              # print the resume command
 ah pin <id>                 # keep a session at the top
-ah status <id> pending      # mark follow-up; parked or --clear also work
+ah status --last pending    # mark the newest session pending
+ah status --last parked     # park the newest session
+ah status --last --clear    # mark the newest session done
+ah status <id> pending      # mark a specific session; parked or --clear also work
 ```
 
 ## Interactive browser
@@ -78,7 +81,7 @@ Running `ah` opens a session browser filtered to the current directory (switch t
 | `Ctrl+b` | Pin / unpin selected session |
 | `Ctrl+t` | Cycle status (default none → pending → parked) |
 | `/` | Search (type after `/`; Esc leaves; placeholder teaches `dir:` / `date:`) |
-| `Tab` then `←` `→` | Filter Cwd/All or sort Updated/Created |
+| `Tab` then `←` `→` | Cycle Cwd/All, harness All/providers, or sort Updated/Created |
 | `Esc` / `q` | Clear search or quit |
 
 Rows are a compact table: age, agent, meta (pin/status), directory, first prompt words, turn count. In Kitty, Ghostty, WezTerm, and iTerm2 the agent column paints the harness logo (Claude, Cursor, ChatGPT/Codex, OpenCode) via the terminal image protocol; other terminals keep the text badge. Set `AGENT_HISTORY_IMAGES=0` to force text. The first status in the list floats above recency and is counted in the footer. The preview pane (on by default) shows metadata and as much of the conversation as fits — beside the list on wide terminals, under it when narrow.
