@@ -685,18 +685,19 @@ function colorize(code, text) {
 
 function truncateRight(value, width) {
   const text = String(value ?? "");
-  return text.length > width ? `${text.slice(0, Math.max(width - 3, 0))}...` : text;
+  if (visibleLength(text) <= width) return text;
+  const stripped = text.replace(/\x1b\[[0-9;]*m/g, "");
+  return `${stripped.slice(0, Math.max(width - 3, 0))}...`;
 }
 
 function truncateLeft(value, width) {
   const text = String(value ?? "");
-  if (text.length <= width) {
-    return text;
-  }
+  if (visibleLength(text) <= width) return text;
+  const stripped = text.replace(/\x1b\[[0-9;]*m/g, "");
   if (width <= 3) {
-    return text.slice(-width);
+    return stripped.slice(-width);
   }
-  return `...${text.slice(-(width - 3))}`;
+  return `...${stripped.slice(-(width - 3))}`;
 }
 
 function formatFrameLine(value, width) {

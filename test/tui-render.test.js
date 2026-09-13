@@ -171,6 +171,9 @@ test("preview pane fills remaining height with later conversation turns", () => 
 });
 
 test("60x16 frame drops directory and keeps headers within the terminal", () => {
+  const previous = process.env.NO_COLOR;
+  delete process.env.NO_COLOR;
+  try {
   const state = createBrowserState([session]);
   state.now = new Date("2026-07-15T12:00:00Z");
   const layout = listColumnLayout(60);
@@ -200,6 +203,10 @@ test("60x16 frame drops directory and keeps headers within the terminal", () => 
   assert.match(lines.at(-2), /\[enter\] resume.*\[ctrl\+n\] new.*\[esc\] exit.*\[tab\] focus/);
   assert.match(lines.at(-1), /\[ctrl\+p\] preview.*\[↑\/↓\] browse/);
   assert.ok(lines.every((line) => line.length <= 60));
+  } finally {
+    if (previous === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = previous;
+  }
 });
 
 test("footer keycaps emphasize Enter and fit wide/narrow terminals", () => {
