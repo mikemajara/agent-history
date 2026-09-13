@@ -1,6 +1,8 @@
-import { DatabaseSync } from "node:sqlite";
 import { expandHomePath } from "../lib/path-utils.js";
 import { compactPreview, unwrapPromptText } from "../lib/text.js";
+
+/** @type {Promise<typeof import("node:sqlite").DatabaseSync | undefined> | undefined} */
+let databaseSyncPromise;
 
 const OPENCODE_DB_PATH = process.env.OPENCODE_DATABASE_PATH ?? expandHomePath("~/.local/share/opencode/opencode.db");
 
@@ -117,7 +119,17 @@ function parseEpoch(value) {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-function withDatabase(databasePath, callback) {
+function getDatabaseSync() {
+  databaseSyncPromise ??= import("node:sqlite")
+    .then((mod) => mod.DatabaseSync)
+    .catch(() => undefined);
+  return databaseSyncPromise;
+}
+
+async function withDatabase(databasePath, callback) {
+  const DatabaseSync = await getDatabaseSync();
+  if (!DatabaseSync) return [];
+
   let db;
   try {
     db = new DatabaseSync(databasePath, { readOnly: true });

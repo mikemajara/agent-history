@@ -3,10 +3,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { discoverOpenCodeSessions, extractOpenCodeTurns } from "../src/providers/opencode.js";
 
-test("OpenCode sessions use SQLite metadata, user text previews, and resume commands", async () => {
+const DatabaseSync = await import("node:sqlite")
+  .then((mod) => mod.DatabaseSync)
+  .catch(() => undefined);
+
+test("OpenCode sessions use SQLite metadata, user text previews, and resume commands", {
+  skip: !DatabaseSync,
+}, async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-history-opencode-"));
   const databasePath = path.join(root, "opencode.db");
   const db = new DatabaseSync(databasePath);
