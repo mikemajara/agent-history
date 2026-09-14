@@ -33,8 +33,10 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
   let onKeypress = undefined;
   let onResize = undefined;
   let active = true;
+  let onExit = undefined;
 
   const cleanup = () => {
+    if (!active) return;
     active = false;
     if (onKeypress) {
       io.stdin.off("keypress", onKeypress);
@@ -42,11 +44,19 @@ export async function runInteractiveBrowser(sessions, io, options = {}) {
     if (onResize) {
       process.off("SIGWINCH", onResize);
     }
+    if (onExit) {
+      process.off("exit", onExit);
+    }
     io.stdin.setRawMode(false);
     io.stdin.pause();
     // Leave the alternate screen so the prior scrollback/prompt is restored.
     io.stdout.write("\x1b[?25h\x1b[?1049l\x1b[?2004l");
   };
+
+  // A clean process exit can bypass the keypress handler. Keep a best-effort
+  // teardown hook so raw mode and the alternate screen are not left enabled.
+  onExit = () => cleanup();
+  process.once("exit", onExit);
 
   // Draw on the alternate screen so quitting restores the user's prior terminal.
   io.stdout.write("\x1b[?1049h\x1b[?2004h\x1b[?25l\x1b[H");
