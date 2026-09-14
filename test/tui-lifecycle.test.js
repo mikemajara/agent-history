@@ -64,19 +64,76 @@ test("interactive browser removes resize and key listeners on Ctrl+C", async () 
     stderr: { write: () => {} },
   };
   const before = process.listenerCount("SIGWINCH");
+  const beforeExit = process.listenerCount("exit");
   const result = runInteractiveBrowser([{ agent: "codex", id: "one", preview: "hello" }], io);
 
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(process.listenerCount("SIGWINCH"), before + 1);
+  assert.equal(process.listenerCount("exit"), beforeExit + 1);
   assert.match(output.join(""), /\x1b\[\?1049h/);
   assert.doesNotMatch(output.join(""), /\x1b\[2J/);
   stdin.emit("keypress", "", { ctrl: true, name: "c" });
 
   assert.equal(await result, 130);
   assert.equal(process.listenerCount("SIGWINCH"), before);
+  assert.equal(process.listenerCount("exit"), beforeExit);
   assert.equal(stdin.rawMode, false);
   assert.match(output.join(""), /\x1b\[\?25h\x1b\[\?1049l/);
   assert.equal(output.at(-1), "\n");
+});
+
+function createMockIo() {
+  const stdin = new EventEmitter();
+  stdin.isTTY = true;
+  stdin.setRawMode = (value) => {
+    stdin.rawMode = value;
+  };
+  stdin.resume = () => {};
+  stdin.pause = () => {};
+
+  const output = [];
+  const io = {
+    stdin,
+    stdout: {
+      isTTY: true,
+      columns: 100,
+      rows: 30,
+      write: (value) => output.push(value),
+    },
+    stderr: { write: () => {} },
+  };
+
+  return { stdin, io, output };
+}
+
+test("interactive browser tears down the terminal on q without clearing scrollback", async () => {
+  const { stdin, io, output } = createMockIo();
+  const beforeExit = process.listenerCount("exit");
+  const result = runInteractiveBrowser([{ agent: "codex", id: "one", preview: "hello" }], io);
+
+  await new Promise((resolve) => setImmediate(resolve));
+  stdin.emit("keypress", "q", { name: "q" });
+
+  assert.equal(await result, 0);
+  assert.equal(process.listenerCount("exit"), beforeExit);
+  assert.equal(stdin.rawMode, false);
+  assert.match(output.at(-1), /\x1b\[\?25h\x1b\[\?1049l\x1b\[\?2004l$/);
+  assert.doesNotMatch(output.join(""), /\x1b\[2J/);
+});
+
+test("interactive browser tears down the terminal on Esc without clearing scrollback", async () => {
+  const { stdin, io, output } = createMockIo();
+  const beforeExit = process.listenerCount("exit");
+  const result = runInteractiveBrowser([{ agent: "codex", id: "one", preview: "hello" }], io);
+
+  await new Promise((resolve) => setImmediate(resolve));
+  stdin.emit("keypress", "", { name: "escape" });
+
+  assert.equal(await result, 0);
+  assert.equal(process.listenerCount("exit"), beforeExit);
+  assert.equal(stdin.rawMode, false);
+  assert.match(output.at(-1), /\x1b\[\?25h\x1b\[\?1049l\x1b\[\?2004l$/);
+  assert.doesNotMatch(output.join(""), /\x1b\[2J/);
 });
 
 test("Enter in search mode launches the selected session", async () => {
@@ -124,6 +181,8 @@ test("Enter in search mode launches the selected session", async () => {
   assert.equal(launchedSession.cwd, "/tmp/global project");
   assert.deepEqual(launchedSession.resumeCommand, ["codex", "resume", "session-one"]);
   assert.equal(launchOptions?.mode, "resume");
+  assert.match(output.join(""), /\x1b\[\?1049l/);
+  assert.doesNotMatch(output.join(""), /\x1b\[2J/);
 });
 
 test("Ctrl+n launches a new session for the selected agent and directory", async () => {
